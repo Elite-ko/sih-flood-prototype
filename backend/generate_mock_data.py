@@ -17,7 +17,7 @@ nodes = [
     {"id": "n_elphinstone", "name": "Elphinstone Road", "lat": 19.0080, "lng": 72.8330},
 ]
 
-# 2. DEFINE THE EDGES
+# 2. DEFINE THE EDGES (LineStrings with physical curves)
 edges = [
     {"id": "e_ambedkar_north", "name": "Dr. Ambedkar Rd (North)", "coordinates": [[19.0215, 72.8430], [19.0190, 72.8422], [19.0170, 72.8416], [19.0145, 72.8410]]},
     {"id": "e_ambedkar_south", "name": "Dr. Ambedkar Rd (South)", "coordinates": [[19.0145, 72.8410], [19.0120, 72.8402], [19.0090, 72.8395]]},
