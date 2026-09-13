@@ -1,126 +1,155 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+document.addEventListener("DOMContentLoaded", () => {
+  // 1. Initialize Map on Andheri East
+  const map = L.map('map', {
+    zoomControl: false 
+  }).setView([19.1155, 72.8710], 15);
 
-:root {
-  var(--bg-glass): rgba(255, 255, 255, 0.75);
-  var(--border-glass): rgba(255, 255, 255, 0.4);
-  var(--shadow-glass): 0 10px 40px -10px rgba(0,0,0,0.15);
-  --text-main: #1d1d1f;
-  --text-muted: #86868b;
-  --blue: #0071e3;
-  --green: #34c759;
-  --orange: #ff9500;
-  --red: #ff3b30;
-  --teal: #5ac8fa;
-  --gray: #8e8e93;
-}
+  // Free Esri Canvas Basemap (No API Key Required)
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri',
+    maxZoom: 18
+  }).addTo(map);
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
-  color: var(--text-main);
-  overflow: hidden;
-}
+  // 2. Define Realistic Street Paths (Proper Lanes, not a grid)
+  const streetNetwork = {
+    "Mathuradas Vasanji Rd": {
+      coords: [[19.1130, 72.8610], [19.1120, 72.8680], [19.1105, 72.8760], [19.1085, 72.8830]],
+      layer: null
+    },
+    "Mahakali Caves Rd": {
+      coords: [[19.1120, 72.8680], [19.1160, 72.8690], [19.1200, 72.8700], [19.1250, 72.8710]],
+      layer: null
+    },
+    "MIDC Central Rd": {
+      coords: [[19.1105, 72.8760], [19.1150, 72.8775], [19.1190, 72.8785], [19.1230, 72.8790]],
+      layer: null
+    },
+    "Cross Road A": {
+      coords: [[19.1160, 72.8690], [19.1150, 72.8775]],
+      layer: null // This road will "flood" during the simulation
+    },
+    "Kondivita Village Rd": {
+      coords: [[19.1120, 72.8680], [19.1150, 72.8775]],
+      layer: null
+    }
+  };
 
-#map {
-  width: 100vw;
-  height: 100vh;
-  position: absolute;
-  top: 0; left: 0;
-  z-index: 1;
-}
+  // Draw initial paths (Green = Normal)
+  for (let street in streetNetwork) {
+    streetNetwork[street].layer = L.polyline(streetNetwork[street].coords, { 
+      color: '#34c759', weight: 5, opacity: 0.9, lineCap: 'round'
+    }).addTo(map);
+  }
 
-/* Glassmorphism Classes */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: saturate(180%) blur(24px);
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 10px 40px -10px rgba(0,0,0,0.15);
-  z-index: 10;
-  position: absolute;
-}
+  // Draw Intersection Nodes (Manholes)
+  const nodes = [
+    [19.1120, 72.8680], [19.1105, 72.8760], [19.1160, 72.8690], [19.1150, 72.8775]
+  ];
+  let nodeLayers = [];
+  nodes.forEach(coord => {
+    let marker = L.circleMarker(coord, { 
+      radius: 6, fillColor: '#34c759', color: '#ffffff', weight: 2, fillOpacity: 1 
+    }).addTo(map);
+    nodeLayers.push(marker);
+  });
 
-/* Header & Sidebar */
-.header-panel {
-  top: 24px; left: 24px;
-  padding: 16px 24px;
-  border-radius: 20px;
-}
-.header-panel h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.5px; }
-.header-panel p { margin: 4px 0 0; font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  // 3. Simulation & Timer Logic
+  const slider = document.getElementById('timeSlider');
+  const timeLabel = document.getElementById('timeCurrent');
+  const playBtn = document.getElementById('playBtn');
+  const iconPlay = document.querySelector('.icon-play');
+  const iconPause = document.querySelector('.icon-pause');
+  
+  // UI Elements to update during simulation
+  const scoreNumber = document.getElementById('riskScore');
+  const scoreLabel = document.getElementById('riskLabel');
+  const intensityText = document.getElementById('rainfallIntensity');
+  const alertsText = document.getElementById('liveAlerts');
 
-.sidebar-panel {
-  top: 24px; right: 24px;
-  width: 320px;
-  border-radius: 24px;
-  padding: 24px;
-  max-height: calc(100vh - 120px);
-  overflow-y: auto;
-}
-.sidebar-panel::-webkit-scrollbar { width: 0px; }
+  let isPlaying = false;
+  let timerInterval;
 
-/* Sections & Typography */
-.section { margin-bottom: 20px; }
-.section h2 { font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; font-weight: 600; margin: 0 0 12px 0; }
-hr { border: 0; border-top: 1px solid rgba(0,0,0,0.08); margin: 20px 0; }
+  // Format minutes into T+H:MM
+  const formatTime = (minutes) => {
+    let hours = Math.floor(minutes / 60);
+    let mins = minutes % 60;
+    return `T+${hours}:${mins.toString().padStart(2, '0')}`;
+  };
 
-.score-display { display: flex; align-items: baseline; gap: 8px; }
-.score-number { font-size: 44px; font-weight: 700; letter-spacing: -2px; }
-.score-number.green { color: var(--green); }
-.score-number.orange { color: var(--orange); }
-.score-number.red { color: var(--red); }
+  // Update map colors and UI based on timeline progress
+  const updateConditions = (time) => {
+    timeLabel.innerText = formatTime(time);
 
-.score-label { font-size: 14px; font-weight: 600; }
-.score-label.green { color: var(--green); }
-.score-label.orange { color: var(--orange); }
-.score-label.red { color: var(--red); }
+    if (time < 45) {
+      // Normal state
+      streetNetwork["Cross Road A"].layer.setStyle({ color: '#34c759' });
+      streetNetwork["Mahakali Caves Rd"].layer.setStyle({ color: '#34c759' });
+      nodeLayers[2].setStyle({ fillColor: '#34c759' });
+      
+      scoreNumber.innerText = "10";
+      scoreNumber.className = "score-number green";
+      scoreLabel.innerText = "NORMAL";
+      scoreLabel.className = "score-label green";
+      intensityText.innerText = "Rainfall intensity: 4 mm/hr";
+      alertsText.innerText = "No active alerts.";
+      alertsText.className = "subtitle";
+      
+    } else if (time >= 45 && time < 100) {
+      // Surcharge state
+      streetNetwork["Cross Road A"].layer.setStyle({ color: '#ff9500' });
+      streetNetwork["Mahakali Caves Rd"].layer.setStyle({ color: '#ff9500' });
+      nodeLayers[2].setStyle({ fillColor: '#ff9500' });
 
-.subtitle { font-size: 13px; color: var(--text-muted); margin: 4px 0 0; line-height: 1.4; }
-.subtitle.alert { color: var(--red); font-weight: 500; }
+      scoreNumber.innerText = "45";
+      scoreNumber.className = "score-number orange";
+      scoreLabel.innerText = "SURCHARGE";
+      scoreLabel.className = "score-label orange";
+      intensityText.innerText = "Rainfall intensity: 32 mm/hr";
+      alertsText.innerText = "Surcharge warning: Cross Road A & Mahakali Jct.";
+      alertsText.className = "subtitle alert";
 
-/* Inputs & Buttons */
-.input-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; }
-select {
-  width: 100%; padding: 10px 12px; border-radius: 12px;
-  border: 1px solid rgba(0,0,0,0.1); background: rgba(255,255,255,0.6);
-  font-size: 13px; font-family: inherit; outline: none; cursor: pointer;
-}
+    } else if (time >= 100) {
+      // Flooded / Overcapacity state
+      streetNetwork["Cross Road A"].layer.setStyle({ color: '#5ac8fa' }); // Teal flooded street
+      streetNetwork["Mahakali Caves Rd"].layer.setStyle({ color: '#ff3b30' }); // Red backflow
+      nodeLayers[2].setStyle({ fillColor: '#ff3b30' }); // Red manhole hazard
 
-.switch-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 500; margin-top: 16px; }
-.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.15); transition: .3s; border-radius: 24px; }
-.slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-input:checked + .slider { background-color: var(--green); }
-input:checked + .slider:before { transform: translateX(20px); }
+      scoreNumber.innerText = "88";
+      scoreNumber.className = "score-number red";
+      scoreLabel.innerText = "CRITICAL";
+      scoreLabel.className = "score-label red";
+      intensityText.innerText = "Rainfall intensity: 58 mm/hr";
+      alertsText.innerText = "SEVERE: Unavoidable flooding on Cross Road A. Reroute traffic.";
+      alertsText.className = "subtitle alert";
+    }
+  };
 
-.apple-btn { background: var(--blue); color: white; border: none; border-radius: 12px; padding: 12px; width: 100%; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-top: 12px; }
-.apple-btn:hover { background: #0060c0; }
-.routing-inputs { display: flex; gap: 8px; }
-.routing-results { margin-top: 16px; font-size: 13px; line-height: 1.5; }
-.routing-results p { margin: 0; padding-bottom: 8px; }
-.route-danger { color: var(--red); }
-.route-safe { color: var(--blue); font-weight: 500; }
+  // Handle Play/Pause toggle
+  const togglePlay = () => {
+    isPlaying = !isPlaying;
+    if (isPlaying) {
+      iconPlay.style.display = 'none';
+      iconPause.style.display = 'block';
+      timerInterval = setInterval(() => {
+        let currentVal = parseInt(slider.value);
+        if (currentVal >= 180) {
+          togglePlay(); // Stop at end
+          return;
+        }
+        slider.value = currentVal + 1;
+        updateConditions(currentVal + 1);
+      }, 100); // Speed of simulation (100ms per simulated minute)
+    } else {
+      iconPlay.style.display = 'block';
+      iconPause.style.display = 'none';
+      clearInterval(timerInterval);
+    }
+  };
 
-/* Legend */
-.legend ul { list-style: none; padding: 0; margin: 0; font-size: 13px; }
-.legend li { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.dash { width: 16px; height: 4px; border-radius: 2px; display: inline-block; }
-.dash-dotted { width: 16px; height: 0; border-top: 2px dashed var(--gray); display: inline-block; }
+  playBtn.addEventListener('click', togglePlay);
 
-/* Timeline */
-.timeline-panel {
-  bottom: 30px; left: 50%; transform: translateX(-50%);
-  padding: 12px 24px; border-radius: 40px; display: flex; align-items: center; gap: 16px;
-  width: 600px; max-width: 90vw;
-}
-.play-btn {
-  background: var(--text-main); color: white; border: none;
-  width: 32px; height: 32px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; cursor: pointer;
-}
-.time-label { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 45px; }
-
-.apple-slider { flex-grow: 1; -webkit-appearance: none; height: 6px; background: rgba(0,0,0,0.1); border-radius: 4px; outline: none; }
-.apple-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.2); cursor: pointer; }
+  // Allow manual scrubbing
+  slider.addEventListener('input', (e) => {
+    updateConditions(parseInt(e.target.value));
+  });
+});
