@@ -86,3 +86,15 @@ input:checked + .slider:before { transform: translateX(20px); }
 
 /* HIDE DEFAULT OSRM ITINERARY BOXES */
 .leaflet-routing-container { display: none !important; }
+/* ADD THIS TO THE BOTTOM OF YOUR style.css */
+
+.leaflet-routing-container { 
+  display: none !important; 
+}
+
+.dash-dotted { 
+  width: 16px; 
+  height: 0; 
+  border-top: 3px dashed var(--blue); 
+  display: inline-block; 
+}
