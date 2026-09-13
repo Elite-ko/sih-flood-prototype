@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Urban Flood Nowcasting</title>
   <link rel="stylesheet" href="style.css">
-  
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
 </head>
@@ -38,7 +37,7 @@
     <hr>
     
     <div class="section">
-      <h2>City Risk Score</h2>
+      <h2>Route Risk Score</h2>
       <div class="score-display">
         <span class="score-number green" id="riskScore">10</span>
         <span class="score-label green" id="riskLabel">NORMAL</span>
@@ -64,15 +63,14 @@
           <option value="shivaji_park">Shivaji Park</option>
         </select>
         <select id="endSelect">
-          <option value="mokal_chinese">Mokal Chinese Corner</option>
           <option value="hindamata">Hindamata Junction</option>
+          <option value="mokal_chinese">Mokal Chinese Corner</option>
           <option value="elphinstone">Elphinstone Bridge</option>
         </select>
       </div>
       <button id="findRouteBtn" class="apple-btn">Find route</button>
       <div class="routing-results">
-        <p class="route-danger" id="standardRouteTxt"><strong>Standard route:</strong> Select locations to calculate</p>
-        <p class="route-safe" id="safeRouteTxt"><strong>Safe route:</strong> Waiting for input...</p>
+        <p class="route-safe" id="routeText">Select locations to calculate route.</p>
       </div>
     </div>
 
@@ -82,9 +80,9 @@
       <h2>Legend</h2>
       <ul>
         <li><span class="dot" style="background: var(--text-main);"></span> Key Location</li>
-        <li><span class="dash-dotted" style="border-color: var(--blue);"></span> Active Route</li>
-        <li><span class="dot" style="background: var(--orange);"></span> Surcharge Hazard Zone</li>
-        <li><span class="dot" style="background: var(--teal);"></span> Flooded Hazard Zone</li>
+        <li><span class="dash-dotted" style="border-color: var(--green);"></span> Route – Safe / Clear</li>
+        <li><span class="dash-dotted" style="border-color: var(--orange);"></span> Route – Surcharge Warning</li>
+        <li><span class="dash-dotted" style="border-color: var(--red);"></span> Route – Flooded / Impassable</li>
       </ul>
     </div>
   </aside>
