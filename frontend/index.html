@@ -1,107 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Urban Flood Nowcasting</title>
-  <link rel="stylesheet" href="style.css">
-  
-  <!-- Leaflet & Routing Machine CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
-</head>
-<body>
-  <!-- Full-bleed background map -->
-  <div id="map"></div>
-
-  <header class="glass-panel header-panel">
+<header class="glass-panel header-panel">
     <h1>Urban Flood Nowcasting</h1>
-    <p>Andheri East Demo Zone • Mumbai • PS 26085</p>
+    <p>Dadar & Hindamata Demo Zone • Mumbai • PS 26085</p>
   </header>
 
-  <aside class="glass-panel sidebar-panel">
-    <div class="section">
-      <div class="input-group">
-        <label>Rainfall Scenario</label>
-        <select id="scenarioSelect">
-          <option value="severe">Severe Storm (Simulated)</option>
-          <option value="normal">Normal</option>
-        </select>
-      </div>
-      <div class="switch-row">
-        <label>Simulate blocked pipes</label>
-        <label class="switch">
-          <input type="checkbox" id="blockageToggle" checked>
-          <span class="slider"></span>
-        </label>
-      </div>
-    </div>
-    
-    <hr>
-    
-    <div class="section">
-      <h2>City Risk Score</h2>
-      <div class="score-display">
-        <span class="score-number green" id="riskScore">10</span>
-        <span class="score-label green" id="riskLabel">NORMAL</span>
-      </div>
-      <p class="subtitle" id="rainfallIntensity">Rainfall intensity: 4 mm/hr</p>
-    </div>
-
-    <hr>
-
-    <div class="section">
-      <h2>Live Alerts</h2>
-      <p class="subtitle" id="liveAlerts">No active alerts.</p>
-    </div>
-
-    <hr>
-    
-    <div class="section">
-      <h2>Flood-Safe Routing</h2>
-      <div class="routing-inputs">
-        <select>
-          <option>Chakala Station</option>
-          <option>Holy Family Church</option>
-        </select>
-        <select>
-          <option>MIDC Police Station</option>
-          <option>Seepz Gate</option>
-        </select>
-      </div>
-      <button class="apple-btn">Find route</button>
-      <div class="routing-results">
-        <p class="route-danger" id="standardRouteTxt"><strong>Standard route:</strong> 1.2 km — crosses expected flooding</p>
-        <p class="route-safe" id="safeRouteTxt"><strong>Safe route:</strong> 1.8 km — clear detour available</p>
-      </div>
-    </div>
-
-    <hr>
-    
-    <div class="section legend">
-      <h2>Legend</h2>
-      <ul>
-        <li><span class="dash" style="background: var(--green);"></span> Street – normal capacity</li>
-        <li><span class="dash" style="background: var(--orange);"></span> Street – surcharge</li>
-        <li><span class="dash" style="background: var(--teal);"></span> Street – flooded segment</li>
-        <li><span class="dot" style="background: var(--red);"></span> Manhole – high risk</li>
-      </ul>
-    </div>
-  </aside>
-
-  <div class="glass-panel timeline-panel">
-    <button class="play-btn" id="playBtn">
-      <svg class="icon-play" width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 4l15 8-15 8V4z"/></svg>
-      <svg class="icon-pause" width="14" height="14" viewBox="0 0 24 24" fill="white" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-    </button>
-    <span class="time-label" id="timeCurrent">T+0:00</span>
-    <input type="range" min="0" max="180" value="0" class="apple-slider" id="timeSlider">
-    <span class="time-label">T+3:00</span>
+  <!-- Further down in the routing section... -->
+  <div class="routing-inputs">
+    <select>
+      <option>Dadar TT Circle</option>
+      <option>Cafe Ciya</option>
+      <option>Shivaji Park</option>
+    </select>
+    <select>
+      <option>Hindamata Junction</option>
+      <option>Mokal Chinese Corner</option>
+      <option>Elphinstone Bridge</option>
+    </select>
   </div>
-
-  <!-- Scripts -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
-  <script src="script.js"></script>
-</body>
-</html>
