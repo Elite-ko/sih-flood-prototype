@@ -7,133 +7,112 @@ document.addEventListener("DOMContentLoaded", () => {
     maxZoom: 18
   }).addTo(map);
 
-  let networkLayers = { nodes: [], edges: [] };
-  let simulationData = {};
+  // 2. Setup Routing Segments (This automatically snaps to real roads)
+  // We store the instances so we can change their colors later
+  let segments = {};
 
-  // 2. Fetch the base graph (Network Layout)
-  // Ensure this URL matches how your backend/main.py serves the graph
-  fetch('/data/graph.json')
-    .then(response => response.json())
-    .then(graphData => {
-      drawNetwork(graphData);
-    })
-    .catch(err => console.error("Error loading real graph data:", err));
+  const createSnappingRoute = (id, startLat, startLng, endLat, endLng) => {
+    segments[id] = L.Routing.control({
+      waypoints: [ L.latLng(startLat, startLng), L.latLng(endLat, endLng) ],
+      show: false, // Hides text directions
+      addWaypoints: false,
+      draggableWaypoints: false,
+      fitSelectedRoutes: false,
+      lineOptions: {
+        styles: [{ color: '#34c759', weight: 6, opacity: 0.9 }] // Default green
+      },
+      createMarker: () => null // Hide default map pins
+    }).addTo(map);
+  };
 
-  // 3. Draw the actual network from your JSON
-  function drawNetwork(graph) {
-    // Clear old layers if reloading
-    networkLayers.nodes.forEach(n => map.removeLayer(n));
-    networkLayers.edges.forEach(e => map.removeLayer(e));
-    networkLayers = { nodes: [], edges: [] };
+  // Define actual street segments in Andheri East
+  createSnappingRoute('mathuradas', 19.1120, 72.8680, 19.1085, 72.8830); // Mathuradas Vasanji Rd
+  createSnappingRoute('mahakali', 19.1120, 72.8680, 19.1200, 72.8700); // Mahakali Caves Rd
+  createSnappingRoute('midc', 19.1150, 72.8775, 19.1230, 72.8790); // MIDC Central Rd
+  createSnappingRoute('crossroad', 19.1160, 72.8690, 19.1150, 72.8775); // Cross Road A
 
-    // Draw Edges (Pipes/Streets)
-    // NOTE: If your edges only have [startLat, startLng] and [endLat, endLng], they will draw straight.
-    // To curve with roads, your backend graph.json needs full GeoJSON LineString coordinates.
-    graph.edges.forEach(edge => {
-      let polyline = L.polyline(edge.coordinates, {
-        color: '#34c759', // Default normal green
-        weight: 5,
-        opacity: 0.9,
-        lineCap: 'round'
-      }).addTo(map);
-      
-      networkLayers.edges.push({ id: edge.id, layer: polyline });
-    });
+  // Add Manhole Markers
+  const nodes = [ [19.1120, 72.8680], [19.1150, 72.8775], [19.1160, 72.8690] ];
+  let nodeLayers = [];
+  nodes.forEach(coord => {
+    let marker = L.circleMarker(coord, { 
+      radius: 6, fillColor: '#34c759', color: '#ffffff', weight: 2, fillOpacity: 1 
+    }).addTo(map);
+    nodeLayers.push(marker);
+  });
 
-    // Draw Nodes (Manholes)
-    graph.nodes.forEach(node => {
-      let marker = L.circleMarker([node.lat, node.lng], {
-        radius: 5, fillColor: '#34c759', color: '#ffffff', weight: 1.5, fillOpacity: 1
-      }).bindTooltip(node.name || node.id).addTo(map);
-      
-      networkLayers.nodes.push({ id: node.id, layer: marker });
-    });
-  }
-
-  // 4. Fetch Timeline Simulation Data based on user selection
-  function loadScenario(scenarioName) {
-    const fileName = scenarioName === 'severe' ? '/data/severe_storm.json' : '/data/normal.json';
-    
-    fetch(fileName)
-      .then(response => response.json())
-      .then(data => {
-        simulationData = data;
-        // Reset timeline slider to 0
-        document.getElementById('timeSlider').value = 0;
-        updateUI(0);
-      })
-      .catch(err => console.error("Error loading scenario:", err));
-  }
-
-  // 5. Update Map Colors & UI based on specific minute in simulation
+  // 3. Setup Simulation UI Logic
+  const slider = document.getElementById('timeSlider');
   const timeLabel = document.getElementById('timeCurrent');
   const scoreNumber = document.getElementById('riskScore');
   const scoreLabel = document.getElementById('riskLabel');
-  
-  function updateUI(minute) {
+  const intensityText = document.getElementById('rainfallIntensity');
+  const alertsText = document.getElementById('liveAlerts');
+
+  // Helper to change color of a snapped route
+  const setRouteColor = (routeInstance, color) => {
+    routeInstance.getPlan().setWaypoints(routeInstance.getWaypoints()); // Triggers redraw
+    routeInstance.options.lineOptions.styles[0].color = color;
+  };
+
+  const updateConditions = (minute) => {
     let hours = Math.floor(minute / 60);
     let mins = minute % 60;
     timeLabel.innerText = `T+${hours}:${mins.toString().padStart(2, '0')}`;
 
-    // Protect against empty data while fetching
-    if (!simulationData || !simulationData.timeline) return;
-
-    // Find the closest state in your JSON for this minute
-    // Assumes your backend data has an array like: timeline: [{ minute: 0, states: [...] }, ...]
-    const currentState = simulationData.timeline.find(t => t.minute >= minute) || simulationData.timeline[0];
-
-    // Apply colors to edges from your backend real data
-    currentState.edges.forEach(edgeState => {
-      let edgeObj = networkLayers.edges.find(e => e.id === edgeState.id);
-      if (edgeObj) {
-        let color = '#34c759'; // normal
-        if (edgeState.status === 'surcharge') color = '#ff9500'; // orange
-        if (edgeState.status === 'flooded') color = '#5ac8fa'; // teal
-        
-        edgeObj.layer.setStyle({ color: color });
-      }
-    });
-
-    // Update Sidebar Stats from your JSON
-    scoreNumber.innerText = currentState.cityScore || "10";
-    if (currentState.cityScore > 75) {
-      scoreNumber.className = "score-number red";
-      scoreLabel.className = "score-label red";
-      scoreLabel.innerText = "CRITICAL";
-    } else if (currentState.cityScore > 40) {
-      scoreNumber.className = "score-number orange";
-      scoreLabel.className = "score-label orange";
-      scoreLabel.innerText = "SURCHARGE";
-    } else {
+    if (minute < 45) {
+      setRouteColor(segments['crossroad'], '#34c759');
+      setRouteColor(segments['mahakali'], '#34c759');
+      nodeLayers[2].setStyle({ fillColor: '#34c759' });
+      
+      scoreNumber.innerText = "10";
       scoreNumber.className = "score-number green";
-      scoreLabel.className = "score-label green";
       scoreLabel.innerText = "NORMAL";
+      scoreLabel.className = "score-label green";
+      intensityText.innerText = "Rainfall intensity: 4 mm/hr";
+      alertsText.innerText = "No active alerts.";
+      alertsText.className = "subtitle";
+      
+    } else if (minute >= 45 && minute < 100) {
+      setRouteColor(segments['crossroad'], '#ff9500'); // Orange
+      setRouteColor(segments['mahakali'], '#ff9500'); // Orange
+      nodeLayers[2].setStyle({ fillColor: '#ff9500' });
+
+      scoreNumber.innerText = "45";
+      scoreNumber.className = "score-number orange";
+      scoreLabel.innerText = "SURCHARGE";
+      scoreLabel.className = "score-label orange";
+      intensityText.innerText = "Rainfall intensity: 32 mm/hr";
+      alertsText.innerText = "Surcharge warning on Cross Road A.";
+      alertsText.className = "subtitle alert";
+
+    } else if (minute >= 100) {
+      setRouteColor(segments['crossroad'], '#5ac8fa'); // Teal flooded
+      setRouteColor(segments['mahakali'], '#ff3b30'); // Red backflow
+      nodeLayers[2].setStyle({ fillColor: '#ff3b30' }); // Red manhole hazard
+
+      scoreNumber.innerText = "88";
+      scoreNumber.className = "score-number red";
+      scoreLabel.innerText = "CRITICAL";
+      scoreLabel.className = "score-label red";
+      intensityText.innerText = "Rainfall intensity: 58 mm/hr";
+      alertsText.innerText = "SEVERE: Flooding on Cross Road A.";
+      alertsText.className = "subtitle alert";
     }
-  }
+  };
 
-  // 6. Hook up the UI Elements
-  document.getElementById('scenarioSelect').addEventListener('change', (e) => {
-    loadScenario(e.target.value);
-  });
-
-  const slider = document.getElementById('timeSlider');
-  slider.addEventListener('input', (e) => {
-    updateUI(parseInt(e.target.value));
-  });
-
-  // Play Button Logic
+  // 4. Play Button
   let isPlaying = false;
   let timerInterval;
   const playBtn = document.getElementById('playBtn');
+  const iconPlay = document.querySelector('.icon-play');
+  const iconPause = document.querySelector('.icon-pause');
   
   playBtn.addEventListener('click', () => {
     isPlaying = !isPlaying;
-    const playIcon = document.querySelector('.icon-play');
-    const pauseIcon = document.querySelector('.icon-pause');
-
     if (isPlaying) {
-      playIcon.style.display = 'none';
-      pauseIcon.style.display = 'block';
+      iconPlay.style.display = 'none';
+      iconPause.style.display = 'block';
       timerInterval = setInterval(() => {
         let currentVal = parseInt(slider.value);
         if (currentVal >= 180) {
@@ -141,15 +120,16 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
         slider.value = currentVal + 1;
-        updateUI(currentVal + 1);
-      }, 200); // Speed of playback
+        updateConditions(currentVal + 1);
+      }, 200); 
     } else {
-      playIcon.style.display = 'block';
-      pauseIcon.style.display = 'none';
+      iconPlay.style.display = 'block';
+      iconPause.style.display = 'none';
       clearInterval(timerInterval);
     }
   });
 
-  // Load initial standard scenario on boot
-  loadScenario('normal');
+  slider.addEventListener('input', (e) => {
+    updateConditions(parseInt(e.target.value));
+  });
 });
