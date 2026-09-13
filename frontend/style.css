@@ -11,32 +11,16 @@
   --gray: #8e8e93;
 }
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
-  color: var(--text-main);
-  overflow: hidden;
-}
-
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif; color: var(--text-main); overflow: hidden; }
 #map { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
 
-.glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: saturate(180%) blur(24px);
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 10px 40px -10px rgba(0,0,0,0.15);
-  z-index: 10;
-  position: absolute;
-}
-
+.glass-panel { background: rgba(255, 255, 255, 0.85); backdrop-filter: saturate(180%) blur(24px); -webkit-backdrop-filter: saturate(180%) blur(24px); border: 1px solid rgba(255, 255, 255, 0.4); box-shadow: 0 10px 40px -10px rgba(0,0,0,0.15); z-index: 10; position: absolute; }
 .header-panel { top: 24px; left: 24px; padding: 16px 24px; border-radius: 20px; }
 .header-panel h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.5px; }
 .header-panel p { margin: 4px 0 0; font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 
 .sidebar-panel { top: 24px; right: 24px; width: 320px; border-radius: 24px; padding: 24px; max-height: calc(100vh - 120px); overflow-y: auto; }
 .sidebar-panel::-webkit-scrollbar { width: 0px; }
-
 .section { margin-bottom: 20px; }
 .section h2 { font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; font-weight: 600; margin: 0 0 12px 0; }
 hr { border: 0; border-top: 1px solid rgba(0,0,0,0.08); margin: 20px 0; }
@@ -70,45 +54,25 @@ input:checked + .slider:before { transform: translateX(20px); }
 .routing-results { margin-top: 16px; font-size: 13px; line-height: 1.5; }
 .routing-results p { margin: 0; padding-bottom: 8px; }
 .route-danger { color: var(--red); }
-.route-safe { color: var(--blue); font-weight: 500; }
+.route-safe { color: var(--green); font-weight: 500; }
+.route-warn { color: var(--orange); font-weight: 500; }
 
 .legend ul { list-style: none; padding: 0; margin: 0; font-size: 13px; }
 .legend li { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.dash { width: 16px; height: 4px; border-radius: 2px; display: inline-block; }
+.dash-dotted { width: 16px; height: 0; border-top: 3px dashed; display: inline-block; }
 
 .timeline-panel { bottom: 30px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 40px; display: flex; align-items: center; gap: 16px; width: 600px; max-width: 90vw; }
 .play-btn { background: var(--text-main); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .time-label { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 45px; }
-
 .apple-slider { flex-grow: 1; -webkit-appearance: none; height: 6px; background: rgba(0,0,0,0.1); border-radius: 4px; outline: none; }
 .apple-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.2); cursor: pointer; }
 
-/* HIDE DEFAULT OSRM ITINERARY BOXES */
+/* Hides default routing UI */
 .leaflet-routing-container { display: none !important; }
-/* ADD THIS TO THE BOTTOM OF YOUR style.css */
 
-.leaflet-routing-container { 
-  display: none !important; 
-}
-
-.dash-dotted { 
-  width: 16px; 
-  height: 0; 
-  border-top: 3px dashed var(--blue); 
-  display: inline-block; 
-}
-/* Add to bottom of style.css */
-.leaflet-routing-container { 
-  display: none !important; 
-}
-
+/* Map Location Labels */
 .map-labels {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  font-weight: 700;
-  color: #1d1d1f;
-  text-shadow: 0 0 5px white, 0 0 5px white, 0 0 5px white;
-  font-size: 11px;
+  background: transparent; border: none; box-shadow: none; font-weight: 700;
+  color: #1d1d1f; text-shadow: 0 0 5px white, 0 0 5px white, 0 0 5px white; font-size: 11px;
 }
