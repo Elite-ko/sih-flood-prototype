@@ -98,3 +98,17 @@ input:checked + .slider:before { transform: translateX(20px); }
   border-top: 3px dashed var(--blue); 
   display: inline-block; 
 }
+/* Add to bottom of style.css */
+.leaflet-routing-container { 
+  display: none !important; 
+}
+
+.map-labels {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  font-weight: 700;
+  color: #1d1d1f;
+  text-shadow: 0 0 5px white, 0 0 5px white, 0 0 5px white;
+  font-size: 11px;
+}
