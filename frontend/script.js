@@ -1,17 +1,14 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // 1. Initialize Map centered exactly on Dadar / Hindamata
   const map = L.map('map', { zoomControl: false }).setView([19.0175, 72.8400], 15);
-  
+
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
     attribution: 'Tiles &copy; Esri',
     maxZoom: 18
   }).addTo(map);
 
-  let networkLayers = { nodes: [], edges: [] };
-  let simulationData = {};
-  let currentScenario = 'severe';
-
-  // Fallback Data: Guarantees rendering even if GitHub is missing the JSON files
-  const fallbackGraph = {
+  // 2. HARDCODED DATA: No fetching required. This guarantees the lines will draw on Render.
+  const graphData = {
     nodes: [
       {id: "n_dadar_tt", name: "Dadar TT Circle", lat: 19.0215, lng: 72.8430},
       {id: "n_hindamata", name: "Hindamata Junction", lat: 19.0145, lng: 72.8410},
@@ -33,31 +30,21 @@ document.addEventListener("DOMContentLoaded", () => {
     ]
   };
 
-  function drawNetwork(graph) {
-    graph.edges.forEach(edge => {
-      let polyline = L.polyline(edge.coordinates, { color: '#34c759', weight: 6, opacity: 0.9, lineCap: 'round' }).bindTooltip(edge.name).addTo(map);
-      networkLayers.edges.push({ id: edge.id, layer: polyline });
-    });
-    graph.nodes.forEach(node => {
-      let marker = L.circleMarker([node.lat, node.lng], { radius: 5, fillColor: '#34c759', color: '#ffffff', weight: 1.5, fillOpacity: 1 }).bindTooltip(node.name).addTo(map);
-      networkLayers.nodes.push({ id: node.id, layer: marker });
-    });
-  }
+  let networkLayers = { edges: [] };
+  let currentScenario = 'severe';
 
-  // 1. Fetch Backend Data (With Fallback)
-  fetch('./data/graph.json')
-    .then(res => {
-      if (!res.ok) throw new Error("File not found");
-      return res.json();
-    })
-    .then(data => drawNetwork(data))
-    .catch(err => {
-      console.warn("Backend JSON not found. Rendering fallback graph.");
-      drawNetwork(fallbackGraph);
-    });
+  // 3. Draw the Map Instantly
+  graphData.edges.forEach(edge => {
+    let polyline = L.polyline(edge.coordinates, { color: '#34c759', weight: 6, opacity: 0.9, lineCap: 'round' }).bindTooltip(edge.name).addTo(map);
+    networkLayers.edges.push({ id: edge.id, layer: polyline });
+  });
 
-  // Fallback Simulation Engine
-  const getFallbackStatus = (edgeId, minute) => {
+  graphData.nodes.forEach(node => {
+    L.circleMarker([node.lat, node.lng], { radius: 5, fillColor: '#34c759', color: '#ffffff', weight: 1.5, fillOpacity: 1 }).bindTooltip(node.name).addTo(map);
+  });
+
+  // 4. Built-in Simulation Logic
+  const getStatus = (edgeId, minute) => {
     if (currentScenario === 'normal') return 'normal';
     if (["e_ambedkar_north", "e_ambedkar_south"].includes(edgeId)) return minute > 85 ? 'flooded' : minute > 40 ? 'surcharge' : 'normal';
     if (["e_naigaon_cross", "e_elphinstone_bridge"].includes(edgeId)) return minute > 110 ? 'flooded' : minute > 60 ? 'surcharge' : 'normal';
@@ -75,31 +62,22 @@ document.addEventListener("DOMContentLoaded", () => {
     let mins = minute % 60;
     timeLabel.innerText = `T+${hours}:${mins.toString().padStart(2, '0')}`;
 
-    let currentScore = 10;
-    if (currentScenario === 'severe') {
-      if (minute > 85) currentScore = 88;
-      else if (minute > 40) currentScore = 45;
-    }
-
+    // Update lines based on simulation time
     networkLayers.edges.forEach(edgeObj => {
-      let status = 'normal';
-      
-      // Use fetched simulation data if available, otherwise calculate locally
-      if (simulationData && simulationData.timeline) {
-         const state = simulationData.timeline.find(t => t.minute >= minute) || simulationData.timeline[0];
-         const edgeState = state.edges.find(e => e.id === edgeObj.id);
-         if (edgeState) status = edgeState.status;
-      } else {
-         status = getFallbackStatus(edgeObj.id, minute);
-      }
-
+      let status = getStatus(edgeObj.id, minute);
       let color = '#34c759'; 
       if (status === 'surcharge') color = '#ff9500'; 
       if (status === 'flooded') color = '#5ac8fa'; 
       edgeObj.layer.setStyle({ color: color });
     });
 
-    // Update Sidebar
+    // Update Dashboard Risk Panel
+    let currentScore = 10;
+    if (currentScenario === 'severe') {
+      if (minute > 85) currentScore = 88;
+      else if (minute > 40) currentScore = 45;
+    }
+
     scoreNumber.innerText = currentScore;
     if (currentScore > 75) {
       scoreNumber.className = "score-number red";
@@ -122,33 +100,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 2. Fetch Timeline Data (With Fallback)
-  function loadScenario(scenarioName) {
-    currentScenario = scenarioName;
-    const fileName = scenarioName === 'severe' ? './data/severe_storm.json' : './data/normal.json';
-    
-    fetch(fileName)
-      .then(res => {
-        if (!res.ok) throw new Error("File not found");
-        return res.json();
-      })
-      .then(data => {
-        simulationData = data;
-        document.getElementById('timeSlider').value = 0;
-        updateUI(0);
-      })
-      .catch(err => {
-        console.warn("Backend timeline JSON not found. Running local simulation engine.");
-        simulationData = null; // Forces the fallback engine to run
-        document.getElementById('timeSlider').value = 0;
-        updateUI(0);
-      });
-  }
+  // 5. Connect UI Listeners
+  document.getElementById('scenarioSelect').addEventListener('change', (e) => {
+    currentScenario = e.target.value;
+    document.getElementById('timeSlider').value = 0;
+    updateUI(0);
+  });
 
-  // 3. UI Controls
-  document.getElementById('scenarioSelect').addEventListener('change', (e) => loadScenario(e.target.value));
-  document.getElementById('timeSlider').addEventListener('input', (e) => updateUI(parseInt(e.target.value)));
+  const slider = document.getElementById('timeSlider');
+  slider.addEventListener('input', (e) => updateUI(parseInt(e.target.value)));
 
+  // Play Button Configuration
   let isPlaying = false;
   let timerInterval;
   const playBtn = document.getElementById('playBtn');
@@ -161,7 +123,6 @@ document.addEventListener("DOMContentLoaded", () => {
       iconPlay.style.display = 'none';
       iconPause.style.display = 'block';
       timerInterval = setInterval(() => {
-        let slider = document.getElementById('timeSlider');
         let currentVal = parseInt(slider.value);
         if (currentVal >= 180) {
           playBtn.click();
@@ -177,5 +138,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  loadScenario('severe');
+  // Start the UI at minute 0
+  updateUI(0);
 });
