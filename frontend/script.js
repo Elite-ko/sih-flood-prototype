@@ -4,11 +4,11 @@ document.addEventListener("DOMContentLoaded", () => {
     zoomControl: false 
   }).setView([19.1126, 72.8710], 16);
 
-  // Use CartoDB Positron for a light, minimalist, iOS-like basemap
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    subdomains: 'abcd',
-    maxZoom: 20
+
+// Use Esri Light Gray Canvas for a clean, API-free basemap
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+    maxZoom: 16
   }).addTo(map);
 
   // Mocking the Graph / Pipe Grid from your original screenshot
