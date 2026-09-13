@@ -25,12 +25,12 @@
           <option value="normal">Normal</option>
         </select>
       </div>
-      <div class="switch-row">
-        <label>Simulate blocked pipes</label>
-        <label class="switch">
-          <input type="checkbox" id="blockageToggle" checked>
-          <span class="slider"></span>
-        </label>
+      <div class="input-group" style="margin-top: 12px;">
+        <label>Vehicle Type</label>
+        <select id="vehicleSelect">
+          <option value="bike">Two-Wheeler (Delivery Fleet)</option>
+          <option value="car">Car / SUV</option>
+        </select>
       </div>
     </div>
     
@@ -68,22 +68,24 @@
           <option value="elphinstone">Elphinstone Bridge</option>
         </select>
       </div>
-      <button id="findRouteBtn" class="apple-btn">Find route</button>
-      <div class="routing-results">
-        <p class="route-safe" id="routeText">Select locations to calculate route.</p>
+      
+      <div class="btn-group">
+        <button id="findRouteBtn" class="apple-btn primary">Find route</button>
+        <button id="clearRouteBtn" class="apple-btn secondary">Clear</button>
       </div>
-    </div>
 
-    <hr>
-    
-    <div class="section legend">
-      <h2>Legend</h2>
-      <ul>
-        <li><span class="dot" style="background: var(--text-main);"></span> Key Location</li>
-        <li><span class="dash-dotted" style="border-color: var(--green);"></span> Route – Safe / Clear</li>
-        <li><span class="dash-dotted" style="border-color: var(--orange);"></span> Route – Surcharge Warning</li>
-        <li><span class="dash-dotted" style="border-color: var(--red);"></span> Route – Flooded / Impassable</li>
-      </ul>
+      <div class="routing-results" id="routingResults" style="display: none;">
+        <div class="route-card" id="standardRouteCard">
+          <p class="route-title">Standard Route</p>
+          <p class="route-metrics" id="standardMetrics">-- km • -- mins</p>
+          <p class="route-status" id="standardStatus">Calculating...</p>
+        </div>
+        <div class="route-card" id="safeRouteCard" style="display: none; margin-top: 10px;">
+          <p class="route-title safe-title">Safe Detour Found</p>
+          <p class="route-metrics" id="safeMetrics">-- km • -- mins</p>
+          <p class="route-status route-safe">Clear & Safe</p>
+        </div>
+      </div>
     </div>
   </aside>
 
