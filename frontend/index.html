@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Andheri East — Flood Nowcast Command Console</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0a0e12;
+    --panel: #10161c;
+    --panel-2: #151d24;
+    --line: #23303a;
+    --text: #d7e0e6;
+    --text-dim: #7d8f9a;
+    --water: #3ba7c4;
+    --water-bright: #6fd6f0;
+    --amber: #e8a53c;
+    --red: #e4572e;
+    --green: #4caf7d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text);
+    font-family:'IBM Plex Sans', sans-serif; }
+  #app { display:flex; flex-direction:column; height:100vh; }
+
+  header {
+    display:flex; align-items:center; gap:24px;
+    padding:14px 22px; border-bottom:1px solid var(--line);
+    background:var(--panel);
+  }
+  header h1 { font-size:16px; font-weight:600; margin:0; letter-spacing:.2px; }
+  header .zone { font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-dim); margin-top:2px;}
+  .title-block { margin-right:auto; }
+  .control { display:flex; flex-direction:column; gap:4px; }
+  .control label { font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.08em; }
+  select {
+    background:var(--panel-2); color:var(--text); border:1px solid var(--line);
+    padding:6px 10px; border-radius:3px; font-family:inherit; font-size:13px;
+  }
+  .toggle-row { display:flex; align-items:center; gap:8px; }
+  .toggle-row input { accent-color: var(--water); width:16px; height:16px; }
+  .toggle-row.disabled { opacity:.35; pointer-events:none; }
+
+  .main { flex:1; display:flex; min-height:0; }
+  #map { flex:1; }
+
+  aside.sidebar {
+    width:320px; background:var(--panel); border-left:1px solid var(--line);
+    display:flex; flex-direction:column; overflow-y:auto;
+  }
+  .panel { padding:16px 18px; border-bottom:1px solid var(--line); }
+  .panel h2 { font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--text-dim); margin:0 0 12px 0; font-weight:600; }
+
+  .risk-readout { display:flex; align-items:baseline; gap:10px; }
+  .risk-number { font-family:'IBM Plex Mono', monospace; font-size:40px; font-weight:600; line-height:1; }
+  .risk-label { font-size:12px; padding:3px 8px; border-radius:2px; font-weight:600; }
+  .risk-low { color:var(--green); } .badge-low { background:rgba(76,175,125,.15); color:var(--green); }
+  .risk-med { color:var(--amber); } .badge-med { background:rgba(232,165,60,.15); color:var(--amber); }
+  .risk-high { color:var(--red); } .badge-high { background:rgba(228,87,46,.15); color:var(--red); }
+  .rain-readout { margin-top:10px; font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--text-dim); }
+  .rain-readout b { color:var(--water-bright); font-weight:600; }
+
+  #alerts { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; }
+  #alerts li { font-size:12px; line-height:1.4; padding:8px 10px; background:var(--panel-2);
+    border-left:2px solid var(--red); border-radius:2px; }
+  #alerts li .eta { color:var(--text-dim); font-family:'IBM Plex Mono', monospace; font-size:11px; }
+  .no-alerts { font-size:12px; color:var(--text-dim); font-style:normal; }
+
+  .route-row { display:flex; gap:8px; margin-bottom:8px; }
+  .route-row select { flex:1; min-width:0; }
+  button#find-route {
+    width:100%; padding:9px; margin-top:4px; background:var(--water); color:#04181f;
+    border:none; border-radius:3px; font-weight:600; font-size:13px; cursor:pointer;
+    font-family:inherit;
+  }
+  button#find-route:hover { background:var(--water-bright); }
+  #route-result { margin-top:10px; font-size:12px; font-family:'IBM Plex Mono', monospace; color:var(--text-dim); line-height:1.6; }
+  #route-result .std { color:var(--red); } #route-result .safe { color:var(--green); }
+
+  .legend-item { display:flex; align-items:center; gap:8px; font-size:12px; margin-bottom:6px; color:var(--text-dim); }
+  .swatch { width:14px; height:4px; border-radius:2px; }
+  .dot { width:10px; height:10px; border-radius:50%; }
+
+  .timeline {
+    background:var(--panel); border-top:1px solid var(--line);
+    padding:12px 22px 16px; display:flex; align-items:center; gap:18px;
+  }
+  .timeline .t-readout { font-family:'IBM Plex Mono', monospace; font-size:13px; min-width:90px; color:var(--water-bright); }
+  .timeline input[type=range] { flex:1; accent-color: var(--water); }
+  #play-btn {
+    background:var(--panel-2); color:var(--text); border:1px solid var(--line);
+    width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:14px;
+  }
+  #play-btn:hover { border-color:var(--water); }
+
+  .maplibregl-popup-content { background:var(--panel-2); color:var(--text); font-family:'IBM Plex Sans', sans-serif; font-size:12px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="title-block">
+      <h1>Urban Flood Nowcasting — Command Console</h1>
+      <div class="zone">ANDHERI EAST DEMO ZONE · MUMBAI · PS 26085</div>
+    </div>
+    <div class="control">
+      <label>Rainfall scenario</label>
+      <select id="rain-select">
+        <option value="normal">Normal</option>
+        <option value="severe" selected>Severe storm</option>
+      </select>
+    </div>
+    <div class="control">
+      <label>Drain blockage</label>
+      <div class="toggle-row" id="blockage-row">
+        <input type="checkbox" id="blockage-toggle" checked />
+        <span style="font-size:13px;">Simulate blocked pipes</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="main">
+    <div id="map"></div>
+    <aside class="sidebar">
+
+      <div class="panel">
+        <h2>City risk score</h2>
+        <div class="risk-readout">
+          <span class="risk-number" id="risk-number">--</span>
+          <span class="risk-label" id="risk-badge">—</span>
+        </div>
+        <div class="rain-readout">Rainfall intensity: <b id="rain-value">-- mm/hr</b></div>
+      </div>
+
+      <div class="panel">
+        <h2>Live alerts</h2>
+        <ul id="alerts"><li class="no-alerts">No active alerts.</li></ul>
+      </div>
+
+      <div class="panel">
+        <h2>Flood-safe routing</h2>
+        <div class="route-row">
+          <select id="route-from"></select>
+          <select id="route-to"></select>
+        </div>
+        <button id="find-route">Find route</button>
+        <div id="route-result"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Legend</h2>
+        <div class="legend-item"><span class="swatch" style="background:#4caf7d"></span> Pipe — normal capacity</div>
+        <div class="legend-item"><span class="swatch" style="background:#e8a53c"></span> Pipe — surcharge</div>
+        <div class="legend-item"><span class="swatch" style="background:#e4572e"></span> Pipe — backflow / overcapacity</div>
+        <div class="legend-item"><span class="dot" style="background:#e4572e"></span> Manhole — high risk</div>
+        <div class="legend-item"><span class="swatch" style="background:#3ba7c4; height:6px;"></span> Flooded street segment</div>
+        <div class="legend-item"><span class="swatch" style="background:#e4572e; border-top:2px dashed #e4572e; background:none;"></span> Standard route</div>
+        <div class="legend-item"><span class="swatch" style="background:#4caf7d"></span> Flood-safe route</div>
+      </div>
+
+    </aside>
+  </div>
+
+  <div class="timeline">
+    <button id="play-btn">▶</button>
+    <span class="t-readout" id="t-readout">T+0:00</span>
+    <input type="range" id="t-slider" min="0" max="180" step="15" value="0" />
+    <span class="t-readout" id="t-readout-end">T+3:00</span>
+  </div>
+
+</div>
+
+<script>
+// Auto-detects local vs. deployed. When you deploy the backend (e.g. on
+// Render), replace ONLY the string below with your backend's live URL —
+// everything else stays automatic.
+const DEPLOYED_API_BASE = "https://YOUR-BACKEND-URL.onrender.com";
+const isLocal = ["localhost", "127.0.0.1", ""].includes(location.hostname);
+const API_BASE = isLocal ? "http://127.0.0.1:8000" : DEPLOYED_API_BASE;
+
+let map, graph, currentTimestep, playing = false, playTimer = null;
+let routeLayerIdsAdded = false;
+
+const state = { t: 0 };
+
+function currentScenarioKey() {
+  const rain = document.getElementById("rain-select").value;
+  const blocked = document.getElementById("blockage-toggle").checked;
+  if (rain === "normal") return "normal";
+  return blocked ? "severe_blockage" : "severe_storm";
+}
+
+function riskBucket(score) {
+  if (score >= 70) return ["high", "risk-high", "badge-high", "SEVERE"];
+  if (score >= 35) return ["medium", "risk-med", "badge-med", "ELEVATED"];
+  return ["low", "risk-low", "badge-low", "NORMAL"];
+}
+
+async function fetchJSON(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url} -> ${res.status}`);
+  return res.json();
+}
+
+function initMap() {
+  map = new maplibregl.Map({
+    container: "map",
+    style: {
+      version: 8,
+      sources: {
+        carto: {
+          type: "raster",
+          tiles: ["https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"],
+          tileSize: 256,
+          attribution: "&copy; OpenStreetMap &copy; CARTO"
+        }
+      },
+      layers: [{ id: "carto", type: "raster", source: "carto" }]
+    },
+    center: [72.8747, 19.119],
+    zoom: 15.2,
+  });
+
+  map.on("load", async () => {
+    graph = await fetchJSON(`${API_BASE}/api/graph`);
+    populateRouteSelects();
+
+    map.addSource("pipes", { type: "geojson", data: emptyFC() });
+    map.addSource("nodes", { type: "geojson", data: emptyFC() });
+    map.addSource("streets", { type: "geojson", data: emptyFC() });
+    map.addSource("route-std", { type: "geojson", data: emptyFC() });
+    map.addSource("route-safe", { type: "geojson", data: emptyFC() });
+
+    map.addLayer({
+      id: "flood-overlay", type: "line", source: "streets",
+      filter: ["==", ["get", "flooded"], true],
+      paint: { "line-color": "#3ba7c4", "line-width": 10, "line-opacity": 0.35, "line-blur": 2 }
+    });
+
+    map.addLayer({
+      id: "pipes-layer", type: "line", source: "pipes",
+      paint: {
+        "line-width": 3,
+        "line-color": [
+          "match", ["get", "status"],
+          "red", "#e4572e", "yellow", "#e8a53c", "green", "#4caf7d",
+          "#4caf7d"
+        ]
+      }
+    });
+
+    map.addLayer({
+      id: "nodes-layer", type: "circle", source: "nodes",
+      paint: {
+        "circle-radius": 5,
+        "circle-color": [
+          "match", ["get", "risk"],
+          "high", "#e4572e", "medium", "#e8a53c", "low", "#4caf7d",
+          "#4caf7d"
+        ],
+        "circle-stroke-width": 1, "circle-stroke-color": "#0a0e12"
+      }
+    });
+
+    map.addLayer({
+      id: "route-std-layer", type: "line", source: "route-std",
+      paint: { "line-color": "#e4572e", "line-width": 4, "line-dasharray": [2, 1.5] }
+    });
+    map.addLayer({
+      id: "route-safe-layer", type: "line", source: "route-safe",
+      paint: { "line-color": "#4caf7d", "line-width": 4 }
+    });
+
+    map.on("click", "nodes-layer", (e) => {
+      const p = e.features[0].properties;
+      new maplibregl.Popup()
+        .setLngLat(e.lngLat)
+        .setHTML(`<b>${p.id}</b><br/>Flood depth: ${p.flood_depth_m} m<br/>Risk: ${p.risk}`)
+        .addTo(map);
+    });
+
+    loadTimestep();
+  });
+}
+
+function emptyFC() { return { type: "FeatureCollection", features: [] }; }
+
+function populateRouteSelects() {
+  const ids = Object.keys(graph.nodes).sort();
+  const fromSel = document.getElementById("route-from");
+  const toSel = document.getElementById("route-to");
+  fromSel.innerHTML = ""; toSel.innerHTML = "";
+  ids.forEach(id => {
+    fromSel.add(new Option(id, id));
+    toSel.add(new Option(id, id));
+  });
+  fromSel.value = "N0_0";
+  toSel.value = "N6_6";
+}
+
+async function loadTimestep() {
+  const scenario = currentScenarioKey();
+  const t = state.t;
+  try {
+    currentTimestep = await fetchJSON(`${API_BASE}/api/scenario/${scenario}/timestep/${t}`);
+  } catch (err) {
+    console.error(err);
+    return;
+  }
+  map.getSource("pipes").setData(currentTimestep.edges);
+  map.getSource("nodes").setData(currentTimestep.nodes);
+  map.getSource("streets").setData(currentTimestep.streets);
+
+  const [cls, numClass, badgeClass, label] = riskBucket(currentTimestep.city_risk_score);
+  const numEl = document.getElementById("risk-number");
+  numEl.textContent = currentTimestep.city_risk_score;
+  numEl.className = "risk-number " + numClass;
+  const badgeEl = document.getElementById("risk-badge");
+  badgeEl.textContent = label;
+  badgeEl.className = "risk-label " + badgeClass;
+
+  document.getElementById("rain-value").textContent = `${currentTimestep.rain_mm_hr} mm/hr`;
+
+  const alertsEl = document.getElementById("alerts");
+  if (currentTimestep.alerts.length === 0) {
+    alertsEl.innerHTML = `<li class="no-alerts">No active alerts.</li>`;
+  } else {
+    alertsEl.innerHTML = currentTimestep.alerts
+      .map(a => `<li><b>Critical</b> — ${a.message.replace(a.node_id, `<span style="color:var(--water-bright)">${a.node_id}</span>`)}
+        <div class="eta">ETA ${a.eta_min} min</div></li>`)
+      .join("");
+  }
+
+  const hh = Math.floor(t / 60), mm = t % 60;
+  document.getElementById("t-readout").textContent = `T+${hh}:${String(mm).padStart(2, "0")}`;
+}
+
+async function findRoute() {
+  const from = document.getElementById("route-from").value;
+  const to = document.getElementById("route-to").value;
+  const scenario = currentScenarioKey();
+  const resultEl = document.getElementById("route-result");
+  resultEl.textContent = "Calculating…";
+  try {
+    const r = await fetchJSON(`${API_BASE}/api/route?scenario=${scenario}&t=${state.t}&from=${from}&to=${to}`);
+    map.getSource("route-std").setData(r.standard_route ? { type: "FeatureCollection", features: [r.standard_route] } : emptyFC());
+    map.getSource("route-safe").setData(r.safe_route ? { type: "FeatureCollection", features: [r.safe_route] } : emptyFC());
+
+    if (!r.standard_route) { resultEl.textContent = "No path found between these nodes."; return; }
+
+    resultEl.innerHTML = `
+      <div class="std">Standard route: ${r.standard_distance_m} m
+        ${r.standard_route.properties.crosses_flooded_segment ? "— crosses flooding" : "— clear"}</div>
+      <div class="safe">Safe route: ${r.safe_distance_m} m
+        ${r.safe_route.properties.crosses_flooded_segment ? "— unavoidable flooding on this leg" : "— avoids flooding"}</div>
+    `;
+  } catch (err) {
+    resultEl.textContent = "Route request failed — is the backend running?";
+    console.error(err);
+  }
+}
+
+function togglePlay() {
+  playing = !playing;
+  document.getElementById("play-btn").textContent = playing ? "⏸" : "▶";
+  if (playing) {
+    playTimer = setInterval(() => {
+      state.t = (state.t + 15) % 195;
+      if (state.t > 180) state.t = 0;
+      document.getElementById("t-slider").value = state.t;
+      loadTimestep();
+    }, 1200);
+  } else {
+    clearInterval(playTimer);
+  }
+}
+
+document.getElementById("t-slider").addEventListener("input", (e) => {
+  state.t = parseInt(e.target.value, 10);
+  loadTimestep();
+});
+document.getElementById("rain-select").addEventListener("change", () => {
+  const isNormal = document.getElementById("rain-select").value === "normal";
+  document.getElementById("blockage-row").classList.toggle("disabled", isNormal);
+  loadTimestep();
+});
+document.getElementById("blockage-toggle").addEventListener("change", loadTimestep);
+document.getElementById("find-route").addEventListener("click", findRoute);
+document.getElementById("play-btn").addEventListener("click", togglePlay);
+
+initMap();
+</script>
+</body>
+</html>
