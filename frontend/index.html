@@ -211,18 +211,10 @@ async function fetchJSON(url) {
 function initMap() {
   map = new maplibregl.Map({
     container: "map",
-    style: {
-      version: 8,
-      sources: {
-        carto: {
-          type: "raster",
-          tiles: ["https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"],
-          tileSize: 256,
-          attribution: "&copy; OpenStreetMap &copy; CARTO"
-        }
-      },
-      layers: [{ id: "carto", type: "raster", source: "carto" }]
-    },
+    // OpenFreeMap's hosted dark style: free, no API key, no request limits.
+    // (CARTO's raster basemaps now require a key as of late 2026 — this
+    // avoids that dependency entirely.)
+    style: "https://tiles.openfreemap.org/styles/dark",
     center: [72.8747, 19.119],
     zoom: 15.2,
   });
