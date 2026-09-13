@@ -1,57 +1,126 @@
-document.addEventListener("DOMContentLoaded", () => {
-  // Initialize Map (Zoom controls disabled for a cleaner Apple-style canvas)
-  const map = L.map('map', {
-    zoomControl: false 
-  }).setView([19.1126, 72.8710], 16);
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+:root {
+  var(--bg-glass): rgba(255, 255, 255, 0.75);
+  var(--border-glass): rgba(255, 255, 255, 0.4);
+  var(--shadow-glass): 0 10px 40px -10px rgba(0,0,0,0.15);
+  --text-main: #1d1d1f;
+  --text-muted: #86868b;
+  --blue: #0071e3;
+  --green: #34c759;
+  --orange: #ff9500;
+  --red: #ff3b30;
+  --teal: #5ac8fa;
+  --gray: #8e8e93;
+}
 
-// Use Esri Light Gray Canvas for a clean, API-free basemap
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-    attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
-    maxZoom: 16
-  }).addTo(map);
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+  color: var(--text-main);
+  overflow: hidden;
+}
 
-  // Mocking the Graph / Pipe Grid from your original screenshot
-  const baseLat = 19.111;
-  const baseLng = 72.868;
-  const step = 0.0015;
-  
-  // Generating a 6x6 grid loop for immediate visual testing
-  for (let i = 0; i < 6; i++) {
-    for (let j = 0; j < 6; j++) {
-      let lat = baseLat + (i * step);
-      let lng = baseLng + (j * step);
-      
-      // Node (Manhole)
-      let nodeColor = (i === 5 && j === 3) ? '#ff3b30' : '#34c759'; // Mock one high-risk red node
-      L.circleMarker([lat, lng], {
-        radius: 4, fillColor: nodeColor, color: '#ffffff', weight: 1, fillOpacity: 1
-      }).addTo(map);
+#map {
+  width: 100vw;
+  height: 100vh;
+  position: absolute;
+  top: 0; left: 0;
+  z-index: 1;
+}
 
-      // Horizontal lines (Pipes)
-      if (j < 5) {
-        let nextLng = baseLng + ((j + 1) * step);
-        let lineColor = (i === 5 && j === 2) ? '#ff9500' : '#34c759'; // Mock an orange surcharge pipe
-        L.polyline([[lat, lng], [lat, nextLng]], { color: lineColor, weight: 3, opacity: 0.9 }).addTo(map);
-      }
-      
-      // Vertical lines (Pipes)
-      if (i < 5) {
-        let nextLat = baseLat + ((i + 1) * step);
-        L.polyline([[lat, lng], [nextLat, lng]], { color: '#34c759', weight: 3, opacity: 0.9 }).addTo(map);
-      }
-    }
-  }
+/* Glassmorphism Classes */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 40px -10px rgba(0,0,0,0.15);
+  z-index: 10;
+  position: absolute;
+}
 
-  // Handle timeline scrubber interaction
-  const slider = document.getElementById('timeSlider');
-  const timeLabels = document.querySelectorAll('.time-label');
-  
-  slider.addEventListener('input', (e) => {
-    let minutes = e.target.value;
-    let hours = Math.floor(minutes / 60);
-    let mins = minutes % 60;
-    let timeString = `T+${hours}:${mins.toString().padStart(2, '0')}`;
-    timeLabels[0].innerText = timeString; 
-  });
-});
+/* Header & Sidebar */
+.header-panel {
+  top: 24px; left: 24px;
+  padding: 16px 24px;
+  border-radius: 20px;
+}
+.header-panel h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.5px; }
+.header-panel p { margin: 4px 0 0; font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.sidebar-panel {
+  top: 24px; right: 24px;
+  width: 320px;
+  border-radius: 24px;
+  padding: 24px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+.sidebar-panel::-webkit-scrollbar { width: 0px; }
+
+/* Sections & Typography */
+.section { margin-bottom: 20px; }
+.section h2 { font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; font-weight: 600; margin: 0 0 12px 0; }
+hr { border: 0; border-top: 1px solid rgba(0,0,0,0.08); margin: 20px 0; }
+
+.score-display { display: flex; align-items: baseline; gap: 8px; }
+.score-number { font-size: 44px; font-weight: 700; letter-spacing: -2px; }
+.score-number.green { color: var(--green); }
+.score-number.orange { color: var(--orange); }
+.score-number.red { color: var(--red); }
+
+.score-label { font-size: 14px; font-weight: 600; }
+.score-label.green { color: var(--green); }
+.score-label.orange { color: var(--orange); }
+.score-label.red { color: var(--red); }
+
+.subtitle { font-size: 13px; color: var(--text-muted); margin: 4px 0 0; line-height: 1.4; }
+.subtitle.alert { color: var(--red); font-weight: 500; }
+
+/* Inputs & Buttons */
+.input-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; }
+select {
+  width: 100%; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.1); background: rgba(255,255,255,0.6);
+  font-size: 13px; font-family: inherit; outline: none; cursor: pointer;
+}
+
+.switch-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 500; margin-top: 16px; }
+.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.15); transition: .3s; border-radius: 24px; }
+.slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+input:checked + .slider { background-color: var(--green); }
+input:checked + .slider:before { transform: translateX(20px); }
+
+.apple-btn { background: var(--blue); color: white; border: none; border-radius: 12px; padding: 12px; width: 100%; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-top: 12px; }
+.apple-btn:hover { background: #0060c0; }
+.routing-inputs { display: flex; gap: 8px; }
+.routing-results { margin-top: 16px; font-size: 13px; line-height: 1.5; }
+.routing-results p { margin: 0; padding-bottom: 8px; }
+.route-danger { color: var(--red); }
+.route-safe { color: var(--blue); font-weight: 500; }
+
+/* Legend */
+.legend ul { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+.legend li { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.dash { width: 16px; height: 4px; border-radius: 2px; display: inline-block; }
+.dash-dotted { width: 16px; height: 0; border-top: 2px dashed var(--gray); display: inline-block; }
+
+/* Timeline */
+.timeline-panel {
+  bottom: 30px; left: 50%; transform: translateX(-50%);
+  padding: 12px 24px; border-radius: 40px; display: flex; align-items: center; gap: 16px;
+  width: 600px; max-width: 90vw;
+}
+.play-btn {
+  background: var(--text-main); color: white; border: none;
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.time-label { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 45px; }
+
+.apple-slider { flex-grow: 1; -webkit-appearance: none; height: 6px; background: rgba(0,0,0,0.1); border-radius: 4px; outline: none; }
+.apple-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.2); cursor: pointer; }
