@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
     maxZoom: 20 
   }).addTo(map);
 
-  // 2. Plot Key Locations (No lines drawn yet)
+  // 2. Define Key Locations
   const locations = {
     "cafe_ciya": { lat: 19.0250, lng: 72.8350, name: "Cafe Ciya" },
     "dadar_tt": { lat: 19.0223, lng: 72.8431, name: "Dadar TT" },
@@ -18,128 +18,149 @@ document.addEventListener("DOMContentLoaded", () => {
     "elphinstone": { lat: 19.0115, lng: 72.8390, name: "Elphinstone Bridge" }
   };
 
+  // Draw location dots only
   for (const key in locations) {
     L.circleMarker([locations[key].lat, locations[key].lng], {
       radius: 5, fillColor: '#1d1d1f', color: '#ffffff', weight: 2, fillOpacity: 1
     }).bindTooltip(locations[key].name, { permanent: true, direction: 'top', className: 'map-labels', offset: [0, -5] }).addTo(map);
   }
 
-  // 3. Dynamic Routing Engine (Only fires on button click)
+  // 3. Routing Engine & Dynamic Coloring
   let activeRouteControl = null;
+  let customRouteLayer = null; 
+  let activeStart = null;
+  let activeEnd = null;
+  let currentScenario = 'severe';
 
   document.getElementById('findRouteBtn').addEventListener('click', () => {
-    const startVal = document.getElementById('startSelect').value;
-    const endVal = document.getElementById('endSelect').value;
-    const startLoc = locations[startVal];
-    const endLoc = locations[endVal];
+    activeStart = document.getElementById('startSelect').value;
+    activeEnd = document.getElementById('endSelect').value;
+    const startLoc = locations[activeStart];
+    const endLoc = locations[activeEnd];
 
-    // Wipe previous route if one exists
-    if (activeRouteControl) {
-      map.removeControl(activeRouteControl);
-    }
+    // Wipe previous routes
+    if (activeRouteControl) map.removeControl(activeRouteControl);
+    if (customRouteLayer) map.removeLayer(customRouteLayer);
 
-    document.getElementById('standardRouteTxt').innerHTML = `<strong>Standard route:</strong> Calculating...`;
-    document.getElementById('safeRouteTxt').innerHTML = `<strong>Safe route:</strong> Scanning detours...`;
+    document.getElementById('routeText').innerHTML = `<strong>Calculating Route...</strong>`;
+    document.getElementById('routeText').className = "route-safe";
 
-    // Calculate new route hugging the actual roads
     activeRouteControl = L.Routing.control({
-      waypoints: [
-        L.latLng(startLoc.lat, startLoc.lng),
-        L.latLng(endLoc.lat, endLoc.lng)
-      ],
-      routeWhileDragging: false,
+      waypoints: [ L.latLng(startLoc.lat, startLoc.lng), L.latLng(endLoc.lat, endLoc.lng) ],
+      show: false, 
       addWaypoints: false,
-      show: false, // Hides text panel via our CSS rule
+      routeWhileDragging: false,
+      createMarker: function() { return null; },
       lineOptions: {
-        styles: [{ color: '#0071e3', opacity: 0.8, weight: 6, lineCap: 'round', dashArray: '10, 10' }]
-      },
-      createMarker: function() { return null; } // Keep map clean
+        styles: [{ color: 'transparent', opacity: 0, weight: 0 }] // Hide default solid line
+      }
     }).addTo(map);
 
+    // When OSRM finds the route, draw our own custom color-changing line
     activeRouteControl.on('routesfound', function(e) {
-      let distanceKm = (e.routes[0].summary.totalDistance / 1000).toFixed(1);
-      document.getElementById('standardRouteTxt').innerHTML = `<strong>Standard route:</strong> ${distanceKm} km — active path`;
-      document.getElementById('safeRouteTxt').innerHTML = `<strong>Safe route:</strong> Monitoring flood zones...`;
+      let route = e.routes[0];
+      
+      if (customRouteLayer) map.removeLayer(customRouteLayer);
+      
+      customRouteLayer = L.polyline(route.coordinates, {
+        color: '#34c759', // Starts green
+        weight: 6, 
+        opacity: 0.9, 
+        lineCap: 'round',
+        dashArray: '10, 12'
+      }).addTo(map);
+
+      // Trigger an immediate UI update based on the current timeline slider position
+      updateUI(parseInt(document.getElementById('timeSlider').value));
     });
   });
 
-  // 4. Flood Hazard Zones (Visual overlays that grow with time)
-  const floodZones = [
-    { lat: 19.0145, lng: 72.8400, radius: 450, offset: 0 },   // Hindamata
-    { lat: 19.0093, lng: 72.8385, radius: 350, offset: 15 },  // Parel TT
-    { lat: 19.0223, lng: 72.8431, radius: 250, offset: 30 }   // Dadar TT
-  ];
+  // 4. Determine Route Status Based on Timeline
+  function getRouteRiskStatus(minute) {
+    if (currentScenario === 'normal' || !activeStart || !activeEnd) return 'normal';
+    
+    // Core Flood Zone (Hindamata / Dadar)
+    const floodZonePoints = ['hindamata', 'mokal_chinese', 'dadar_tt'];
+    if (floodZonePoints.includes(activeStart) || floodZonePoints.includes(activeEnd)) {
+      if (minute > 75) return 'flooded'; // Red
+      if (minute > 35) return 'surcharge'; // Orange
+    }
 
-  let zoneLayers = [];
-  floodZones.forEach(zone => {
-    let circle = L.circle([zone.lat, zone.lng], {
-      radius: zone.radius, color: 'transparent', fillColor: 'transparent'
-    }).addTo(map);
-    zoneLayers.push({ circle: circle, ...zone });
-  });
+    // Secondary Zone (Elphinstone)
+    if (activeStart === 'elphinstone' || activeEnd === 'elphinstone') {
+      if (minute > 120) return 'flooded'; // Red
+      if (minute > 65) return 'surcharge'; // Orange
+    }
 
-  let currentScenario = 'severe';
+    return 'normal'; // Green
+  }
+
+  // 5. Update UI, Route Colors, and Score
   const timeLabel = document.getElementById('timeCurrent');
   const scoreNumber = document.getElementById('riskScore');
   const scoreLabel = document.getElementById('riskLabel');
   const alertsText = document.getElementById('liveAlerts');
+  const routeText = document.getElementById('routeText');
 
   function updateUI(minute) {
     let hours = Math.floor(minute / 60);
     let mins = minute % 60;
     timeLabel.innerText = `T+${hours}:${mins.toString().padStart(2, '0')}`;
 
-    let currentScore = 10;
-    let floodedCount = 0;
+    let status = getRouteRiskStatus(minute);
+    
+    // Colorize the route directly
+    if (customRouteLayer) {
+      if (status === 'normal') customRouteLayer.setStyle({ color: '#34c759' });
+      else if (status === 'surcharge') customRouteLayer.setStyle({ color: '#ff9500' });
+      else if (status === 'flooded') customRouteLayer.setStyle({ color: '#ff3b30' });
+    }
 
-    // Dynamically color the hazard zones based on time
-    zoneLayers.forEach(z => {
-      let adjustedMinute = minute - z.offset;
-      if (currentScenario === 'normal') {
-        z.circle.setStyle({ color: 'transparent', fillColor: 'transparent' });
-      } else {
-        if (adjustedMinute > 75) {
-          z.circle.setStyle({ color: '#5ac8fa', fillColor: '#5ac8fa', fillOpacity: 0.3 }); // Teal/Flooded
-          floodedCount++;
-        } else if (adjustedMinute > 35) {
-          z.circle.setStyle({ color: '#ff9500', fillColor: '#ff9500', fillOpacity: 0.2 }); // Orange/Surcharge
-        } else {
-          z.circle.setStyle({ color: 'transparent', fillColor: 'transparent' });
-        }
+    // Update Route Text Panel
+    if (activeRouteControl && customRouteLayer) {
+      if (status === 'normal') {
+        routeText.innerHTML = `<strong>Route Status:</strong> Clear & Safe`;
+        routeText.className = "route-safe";
+      } else if (status === 'surcharge') {
+        routeText.innerHTML = `<strong>Route Status:</strong> Expect delays — drainage surcharging`;
+        routeText.className = "route-warn";
+      } else if (status === 'flooded') {
+        routeText.innerHTML = `<strong>Route Status:</strong> Impassable — severe flooding on path`;
+        routeText.className = "route-danger";
       }
-    });
+    }
 
-    if (floodedCount > 0) currentScore = 92;
-    else if (minute > 35 && currentScenario === 'severe') currentScore = 48;
+    // Update Dashboard Risk Score
+    let currentScore = 10;
+    if (status === 'flooded') currentScore = 92;
+    else if (status === 'surcharge') currentScore = 48;
 
-    // Update Dashboard Risk Panel
     scoreNumber.innerText = currentScore;
     if (currentScore > 75) {
       scoreNumber.className = "score-number red";
       scoreLabel.className = "score-label red";
       scoreLabel.innerText = "CRITICAL";
-      alertsText.innerText = "SEVERE: Impassable flooding detected in marked zones. Avoid Hindamata.";
+      alertsText.innerText = "SEVERE: Plotted route intersects impassable flood zones. Seek alternatives.";
       alertsText.className = "subtitle alert";
     } else if (currentScore > 40) {
       scoreNumber.className = "score-number orange";
       scoreLabel.className = "score-label orange";
       scoreLabel.innerText = "SURCHARGE";
-      alertsText.innerText = "Warning: Storm drains exceeding capacity in marked zones.";
+      alertsText.innerText = "Warning: Plotted route passes through surcharging storm drains.";
       alertsText.className = "subtitle alert";
     } else {
       scoreNumber.className = "score-number green";
       scoreLabel.className = "score-label green";
       scoreLabel.innerText = "NORMAL";
-      alertsText.innerText = "No active alerts. Network flowing optimally.";
+      alertsText.innerText = "No active alerts for plotted route.";
       alertsText.className = "subtitle";
     }
   }
 
-  // 5. Connect Timeline Slider Controls
+  // 6. Connect Controls
   document.getElementById('scenarioSelect').addEventListener('change', (e) => {
     currentScenario = e.target.value;
-    document.getElementById('timeSlider').value = 0;
-    updateUI(0);
+    updateUI(parseInt(document.getElementById('timeSlider').value));
   });
 
   const slider = document.getElementById('timeSlider');
