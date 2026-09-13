@@ -1,14 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --text-main: #1d1d1f;
-  --text-muted: #86868b;
-  --blue: #0071e3;
-  --green: #34c759;
-  --orange: #ff9500;
-  --red: #ff3b30;
-  --teal: #5ac8fa;
-  --gray: #8e8e93;
+  --text-main: #1d1d1f; --text-muted: #86868b;
+  --blue: #0071e3; --green: #34c759; --orange: #ff9500; --red: #ff3b30; --teal: #5ac8fa; --gray: #e5e5ea;
 }
 
 body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif; color: var(--text-main); overflow: hidden; }
@@ -41,26 +35,24 @@ hr { border: 0; border-top: 1px solid rgba(0,0,0,0.08); margin: 20px 0; }
 select { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); background: rgba(255,255,255,0.6); font-size: 13px; font-family: inherit; outline: none; cursor: pointer; }
 
 .switch-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 500; margin-top: 16px; }
-.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.15); transition: .3s; border-radius: 24px; }
-.slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-input:checked + .slider { background-color: var(--green); }
-input:checked + .slider:before { transform: translateX(20px); }
 
-.apple-btn { background: var(--blue); color: white; border: none; border-radius: 12px; padding: 12px; width: 100%; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-top: 12px; }
-.apple-btn:hover { background: #0060c0; }
+.btn-group { display: flex; gap: 8px; margin-top: 12px; }
+.apple-btn { border: none; border-radius: 12px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; text-align: center; }
+.apple-btn.primary { background: var(--blue); color: white; flex: 2; }
+.apple-btn.primary:hover { background: #0060c0; }
+.apple-btn.secondary { background: var(--gray); color: var(--text-main); flex: 1; }
+.apple-btn.secondary:hover { background: #d1d1d6; }
+
 .routing-inputs { display: flex; gap: 8px; }
-.routing-results { margin-top: 16px; font-size: 13px; line-height: 1.5; }
-.routing-results p { margin: 0; padding-bottom: 8px; }
+.routing-results { margin-top: 16px; }
+.route-card { background: rgba(0,0,0,0.03); padding: 12px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.05); }
+.route-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin: 0 0 4px 0; }
+.safe-title { color: var(--green); }
+.route-metrics { font-size: 18px; font-weight: 700; margin: 0 0 4px 0; letter-spacing: -0.5px; }
+.route-status { font-size: 13px; margin: 0; font-weight: 500; }
 .route-danger { color: var(--red); }
-.route-safe { color: var(--green); font-weight: 500; }
-.route-warn { color: var(--orange); font-weight: 500; }
-
-.legend ul { list-style: none; padding: 0; margin: 0; font-size: 13px; }
-.legend li { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.dash-dotted { width: 16px; height: 0; border-top: 3px dashed; display: inline-block; }
+.route-safe { color: var(--green); }
+.route-warn { color: var(--orange); }
 
 .timeline-panel { bottom: 30px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 40px; display: flex; align-items: center; gap: 16px; width: 600px; max-width: 90vw; }
 .play-btn { background: var(--text-main); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
@@ -68,11 +60,5 @@ input:checked + .slider:before { transform: translateX(20px); }
 .apple-slider { flex-grow: 1; -webkit-appearance: none; height: 6px; background: rgba(0,0,0,0.1); border-radius: 4px; outline: none; }
 .apple-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.2); cursor: pointer; }
 
-/* Hides default routing UI */
 .leaflet-routing-container { display: none !important; }
-
-/* Map Location Labels */
-.map-labels {
-  background: transparent; border: none; box-shadow: none; font-weight: 700;
-  color: #1d1d1f; text-shadow: 0 0 5px white, 0 0 5px white, 0 0 5px white; font-size: 11px;
-}
+.map-labels { background: transparent; border: none; box-shadow: none; font-weight: 700; color: #1d1d1f; text-shadow: 0 0 5px white, 0 0 5px white, 0 0 5px white; font-size: 11px; }
