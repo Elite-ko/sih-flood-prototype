@@ -180,7 +180,7 @@
 // Auto-detects local vs. deployed. When you deploy the backend (e.g. on
 // Render), replace ONLY the string below with your backend's live URL —
 // everything else stays automatic.
-const DEPLOYED_API_BASE = "https://sih-flood-prototype.onrender.com";
+const DEPLOYED_API_BASE = "https://YOUR-BACKEND-URL.onrender.com";
 const isLocal = ["localhost", "127.0.0.1", ""].includes(location.hostname);
 const API_BASE = isLocal ? "http://127.0.0.1:8000" : DEPLOYED_API_BASE;
 
