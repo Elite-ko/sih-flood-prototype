@@ -1,155 +1,155 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // 1. Initialize Map on Andheri East
-  const map = L.map('map', {
-    zoomControl: false 
-  }).setView([19.1155, 72.8710], 15);
+  // 1. Initialize Map
+  const map = L.map('map', { zoomControl: false }).setView([19.1155, 72.8710], 15);
 
-  // Free Esri Canvas Basemap (No API Key Required)
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
     attribution: 'Tiles &copy; Esri',
     maxZoom: 18
   }).addTo(map);
 
-  // 2. Define Realistic Street Paths (Proper Lanes, not a grid)
-  const streetNetwork = {
-    "Mathuradas Vasanji Rd": {
-      coords: [[19.1130, 72.8610], [19.1120, 72.8680], [19.1105, 72.8760], [19.1085, 72.8830]],
-      layer: null
-    },
-    "Mahakali Caves Rd": {
-      coords: [[19.1120, 72.8680], [19.1160, 72.8690], [19.1200, 72.8700], [19.1250, 72.8710]],
-      layer: null
-    },
-    "MIDC Central Rd": {
-      coords: [[19.1105, 72.8760], [19.1150, 72.8775], [19.1190, 72.8785], [19.1230, 72.8790]],
-      layer: null
-    },
-    "Cross Road A": {
-      coords: [[19.1160, 72.8690], [19.1150, 72.8775]],
-      layer: null // This road will "flood" during the simulation
-    },
-    "Kondivita Village Rd": {
-      coords: [[19.1120, 72.8680], [19.1150, 72.8775]],
-      layer: null
-    }
-  };
+  let networkLayers = { nodes: [], edges: [] };
+  let simulationData = {};
 
-  // Draw initial paths (Green = Normal)
-  for (let street in streetNetwork) {
-    streetNetwork[street].layer = L.polyline(streetNetwork[street].coords, { 
-      color: '#34c759', weight: 5, opacity: 0.9, lineCap: 'round'
-    }).addTo(map);
+  // 2. Fetch the base graph (Network Layout)
+  // Ensure this URL matches how your backend/main.py serves the graph
+  fetch('/data/graph.json')
+    .then(response => response.json())
+    .then(graphData => {
+      drawNetwork(graphData);
+    })
+    .catch(err => console.error("Error loading real graph data:", err));
+
+  // 3. Draw the actual network from your JSON
+  function drawNetwork(graph) {
+    // Clear old layers if reloading
+    networkLayers.nodes.forEach(n => map.removeLayer(n));
+    networkLayers.edges.forEach(e => map.removeLayer(e));
+    networkLayers = { nodes: [], edges: [] };
+
+    // Draw Edges (Pipes/Streets)
+    // NOTE: If your edges only have [startLat, startLng] and [endLat, endLng], they will draw straight.
+    // To curve with roads, your backend graph.json needs full GeoJSON LineString coordinates.
+    graph.edges.forEach(edge => {
+      let polyline = L.polyline(edge.coordinates, {
+        color: '#34c759', // Default normal green
+        weight: 5,
+        opacity: 0.9,
+        lineCap: 'round'
+      }).addTo(map);
+      
+      networkLayers.edges.push({ id: edge.id, layer: polyline });
+    });
+
+    // Draw Nodes (Manholes)
+    graph.nodes.forEach(node => {
+      let marker = L.circleMarker([node.lat, node.lng], {
+        radius: 5, fillColor: '#34c759', color: '#ffffff', weight: 1.5, fillOpacity: 1
+      }).bindTooltip(node.name || node.id).addTo(map);
+      
+      networkLayers.nodes.push({ id: node.id, layer: marker });
+    });
   }
 
-  // Draw Intersection Nodes (Manholes)
-  const nodes = [
-    [19.1120, 72.8680], [19.1105, 72.8760], [19.1160, 72.8690], [19.1150, 72.8775]
-  ];
-  let nodeLayers = [];
-  nodes.forEach(coord => {
-    let marker = L.circleMarker(coord, { 
-      radius: 6, fillColor: '#34c759', color: '#ffffff', weight: 2, fillOpacity: 1 
-    }).addTo(map);
-    nodeLayers.push(marker);
-  });
+  // 4. Fetch Timeline Simulation Data based on user selection
+  function loadScenario(scenarioName) {
+    const fileName = scenarioName === 'severe' ? '/data/severe_storm.json' : '/data/normal.json';
+    
+    fetch(fileName)
+      .then(response => response.json())
+      .then(data => {
+        simulationData = data;
+        // Reset timeline slider to 0
+        document.getElementById('timeSlider').value = 0;
+        updateUI(0);
+      })
+      .catch(err => console.error("Error loading scenario:", err));
+  }
 
-  // 3. Simulation & Timer Logic
-  const slider = document.getElementById('timeSlider');
+  // 5. Update Map Colors & UI based on specific minute in simulation
   const timeLabel = document.getElementById('timeCurrent');
-  const playBtn = document.getElementById('playBtn');
-  const iconPlay = document.querySelector('.icon-play');
-  const iconPause = document.querySelector('.icon-pause');
-  
-  // UI Elements to update during simulation
   const scoreNumber = document.getElementById('riskScore');
   const scoreLabel = document.getElementById('riskLabel');
-  const intensityText = document.getElementById('rainfallIntensity');
-  const alertsText = document.getElementById('liveAlerts');
+  
+  function updateUI(minute) {
+    let hours = Math.floor(minute / 60);
+    let mins = minute % 60;
+    timeLabel.innerText = `T+${hours}:${mins.toString().padStart(2, '0')}`;
 
+    // Protect against empty data while fetching
+    if (!simulationData || !simulationData.timeline) return;
+
+    // Find the closest state in your JSON for this minute
+    // Assumes your backend data has an array like: timeline: [{ minute: 0, states: [...] }, ...]
+    const currentState = simulationData.timeline.find(t => t.minute >= minute) || simulationData.timeline[0];
+
+    // Apply colors to edges from your backend real data
+    currentState.edges.forEach(edgeState => {
+      let edgeObj = networkLayers.edges.find(e => e.id === edgeState.id);
+      if (edgeObj) {
+        let color = '#34c759'; // normal
+        if (edgeState.status === 'surcharge') color = '#ff9500'; // orange
+        if (edgeState.status === 'flooded') color = '#5ac8fa'; // teal
+        
+        edgeObj.layer.setStyle({ color: color });
+      }
+    });
+
+    // Update Sidebar Stats from your JSON
+    scoreNumber.innerText = currentState.cityScore || "10";
+    if (currentState.cityScore > 75) {
+      scoreNumber.className = "score-number red";
+      scoreLabel.className = "score-label red";
+      scoreLabel.innerText = "CRITICAL";
+    } else if (currentState.cityScore > 40) {
+      scoreNumber.className = "score-number orange";
+      scoreLabel.className = "score-label orange";
+      scoreLabel.innerText = "SURCHARGE";
+    } else {
+      scoreNumber.className = "score-number green";
+      scoreLabel.className = "score-label green";
+      scoreLabel.innerText = "NORMAL";
+    }
+  }
+
+  // 6. Hook up the UI Elements
+  document.getElementById('scenarioSelect').addEventListener('change', (e) => {
+    loadScenario(e.target.value);
+  });
+
+  const slider = document.getElementById('timeSlider');
+  slider.addEventListener('input', (e) => {
+    updateUI(parseInt(e.target.value));
+  });
+
+  // Play Button Logic
   let isPlaying = false;
   let timerInterval;
-
-  // Format minutes into T+H:MM
-  const formatTime = (minutes) => {
-    let hours = Math.floor(minutes / 60);
-    let mins = minutes % 60;
-    return `T+${hours}:${mins.toString().padStart(2, '0')}`;
-  };
-
-  // Update map colors and UI based on timeline progress
-  const updateConditions = (time) => {
-    timeLabel.innerText = formatTime(time);
-
-    if (time < 45) {
-      // Normal state
-      streetNetwork["Cross Road A"].layer.setStyle({ color: '#34c759' });
-      streetNetwork["Mahakali Caves Rd"].layer.setStyle({ color: '#34c759' });
-      nodeLayers[2].setStyle({ fillColor: '#34c759' });
-      
-      scoreNumber.innerText = "10";
-      scoreNumber.className = "score-number green";
-      scoreLabel.innerText = "NORMAL";
-      scoreLabel.className = "score-label green";
-      intensityText.innerText = "Rainfall intensity: 4 mm/hr";
-      alertsText.innerText = "No active alerts.";
-      alertsText.className = "subtitle";
-      
-    } else if (time >= 45 && time < 100) {
-      // Surcharge state
-      streetNetwork["Cross Road A"].layer.setStyle({ color: '#ff9500' });
-      streetNetwork["Mahakali Caves Rd"].layer.setStyle({ color: '#ff9500' });
-      nodeLayers[2].setStyle({ fillColor: '#ff9500' });
-
-      scoreNumber.innerText = "45";
-      scoreNumber.className = "score-number orange";
-      scoreLabel.innerText = "SURCHARGE";
-      scoreLabel.className = "score-label orange";
-      intensityText.innerText = "Rainfall intensity: 32 mm/hr";
-      alertsText.innerText = "Surcharge warning: Cross Road A & Mahakali Jct.";
-      alertsText.className = "subtitle alert";
-
-    } else if (time >= 100) {
-      // Flooded / Overcapacity state
-      streetNetwork["Cross Road A"].layer.setStyle({ color: '#5ac8fa' }); // Teal flooded street
-      streetNetwork["Mahakali Caves Rd"].layer.setStyle({ color: '#ff3b30' }); // Red backflow
-      nodeLayers[2].setStyle({ fillColor: '#ff3b30' }); // Red manhole hazard
-
-      scoreNumber.innerText = "88";
-      scoreNumber.className = "score-number red";
-      scoreLabel.innerText = "CRITICAL";
-      scoreLabel.className = "score-label red";
-      intensityText.innerText = "Rainfall intensity: 58 mm/hr";
-      alertsText.innerText = "SEVERE: Unavoidable flooding on Cross Road A. Reroute traffic.";
-      alertsText.className = "subtitle alert";
-    }
-  };
-
-  // Handle Play/Pause toggle
-  const togglePlay = () => {
+  const playBtn = document.getElementById('playBtn');
+  
+  playBtn.addEventListener('click', () => {
     isPlaying = !isPlaying;
+    const playIcon = document.querySelector('.icon-play');
+    const pauseIcon = document.querySelector('.icon-pause');
+
     if (isPlaying) {
-      iconPlay.style.display = 'none';
-      iconPause.style.display = 'block';
+      playIcon.style.display = 'none';
+      pauseIcon.style.display = 'block';
       timerInterval = setInterval(() => {
         let currentVal = parseInt(slider.value);
         if (currentVal >= 180) {
-          togglePlay(); // Stop at end
+          playBtn.click(); // Pause at end
           return;
         }
         slider.value = currentVal + 1;
-        updateConditions(currentVal + 1);
-      }, 100); // Speed of simulation (100ms per simulated minute)
+        updateUI(currentVal + 1);
+      }, 200); // Speed of playback
     } else {
-      iconPlay.style.display = 'block';
-      iconPause.style.display = 'none';
+      playIcon.style.display = 'block';
+      pauseIcon.style.display = 'none';
       clearInterval(timerInterval);
     }
-  };
-
-  playBtn.addEventListener('click', togglePlay);
-
-  // Allow manual scrubbing
-  slider.addEventListener('input', (e) => {
-    updateConditions(parseInt(e.target.value));
   });
+
+  // Load initial standard scenario on boot
+  loadScenario('normal');
 });
