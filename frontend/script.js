@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let simulationData = {};
 
   // 2. Fetch the base graph from the Python Backend
-  fetch('/data/graph.json')
+fetch('./data/graph.json')
     .then(response => response.json())
     .then(graphData => {
       drawNetwork(graphData);
