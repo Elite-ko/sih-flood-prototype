@@ -8,93 +8,77 @@ document.addEventListener("DOMContentLoaded", () => {
     maxZoom: 20 
   }).addTo(map);
 
-  // 2. High-Precision Background Network (Snaps to roads, no straight lines)
-  const graphData = {
-    edges: [
-      {id: "e_ambedkar", name: "Dr. Ambedkar Rd", coords: [[19.0260, 72.8445], [19.0232, 72.8435], [19.0205, 72.8422], [19.0175, 72.8410], [19.0145, 72.8400], [19.0115, 72.8390], [19.0060, 72.8375]]},
-      {id: "e_senapati", name: "Senapati Bapat Marg", coords: [[19.0250, 72.8360], [19.0220, 72.8340], [19.0185, 72.8322], [19.0160, 72.8315], [19.0125, 72.8302], [19.0090, 72.8290]]},
-      {id: "e_gokhale", name: "Gokhale Road", coords: [[19.0260, 72.8375], [19.0235, 72.8383], [19.0195, 72.8345], [19.0160, 72.8315]]},
-      {id: "e_tilak", name: "Tilak Bridge", coords: [[19.0223, 72.8431], [19.0215, 72.8405], [19.0205, 72.8390], [19.0228, 72.8383]]},
-      {id: "e_elphinstone", name: "Elphinstone Bridge", coords: [[19.0115, 72.8390], [19.0110, 72.8360], [19.0105, 72.8340], [19.0160, 72.8315]]},
-      {id: "e_naigaon", name: "Naigaon Cross Rd", coords: [[19.0145, 72.8400], [19.0155, 72.8430], [19.0163, 72.8475], [19.0170, 72.8500]]},
-      {id: "e_bhavani", name: "Bhavani Shankar Rd", coords: [[19.0228, 72.8383], [19.0240, 72.8365], [19.0250, 72.8350], [19.0260, 72.8340]]}
-    ]
+  // 2. Plot Key Locations (No lines drawn yet)
+  const locations = {
+    "cafe_ciya": { lat: 19.0250, lng: 72.8350, name: "Cafe Ciya" },
+    "dadar_tt": { lat: 19.0223, lng: 72.8431, name: "Dadar TT" },
+    "shivaji_park": { lat: 19.0260, lng: 72.8375, name: "Shivaji Park" },
+    "mokal_chinese": { lat: 19.0163, lng: 72.8475, name: "Mokal Chinese" },
+    "hindamata": { lat: 19.0145, lng: 72.8400, name: "Hindamata Junction" },
+    "elphinstone": { lat: 19.0115, lng: 72.8390, name: "Elphinstone Bridge" }
   };
 
-  let networkLayers = { edges: [] };
-  let currentScenario = 'severe';
+  for (const key in locations) {
+    L.circleMarker([locations[key].lat, locations[key].lng], {
+      radius: 5, fillColor: '#1d1d1f', color: '#ffffff', weight: 2, fillOpacity: 1
+    }).bindTooltip(locations[key].name, { permanent: true, direction: 'top', className: 'map-labels', offset: [0, -5] }).addTo(map);
+  }
 
-  // Draw background network
-  graphData.edges.forEach(edge => {
-    let polyline = L.polyline(edge.coords, { 
-      color: '#34c759', weight: 6, opacity: 0.7, lineCap: 'round', lineJoin: 'round' 
-    }).bindTooltip(edge.name).addTo(map);
-    networkLayers.edges.push({ id: edge.id, layer: polyline });
-  });
-
-  // 3. Dynamic Routing Engine (Connects dropdowns to live road mapping)
-  const routeLocations = {
-    "cafe_ciya": [19.0250, 72.8350, "Vanilla Cookie Shake stop"],
-    "dadar_tt": [19.0223, 72.8431, "Dadar TT"],
-    "shivaji_park": [19.0260, 72.8375, "Shivaji Park"],
-    "mokal_chinese": [19.0163, 72.8475, "Chicken Triple Schezwan pickup"],
-    "hindamata": [19.0145, 72.8400, "Hindamata Junction"],
-    "elphinstone": [19.0115, 72.8390, "Elphinstone Bridge"]
-  };
-
+  // 3. Dynamic Routing Engine (Only fires on button click)
   let activeRouteControl = null;
 
   document.getElementById('findRouteBtn').addEventListener('click', () => {
     const startVal = document.getElementById('startSelect').value;
     const endVal = document.getElementById('endSelect').value;
-    
-    const startData = routeLocations[startVal];
-    const endData = routeLocations[endVal];
+    const startLoc = locations[startVal];
+    const endLoc = locations[endVal];
 
-    // Remove previous active route if exists
+    // Wipe previous route if one exists
     if (activeRouteControl) {
       map.removeControl(activeRouteControl);
     }
 
-    // Set UI to loading
     document.getElementById('standardRouteTxt').innerHTML = `<strong>Standard route:</strong> Calculating...`;
-    document.getElementById('safeRouteTxt').innerHTML = `<strong>Safe route:</strong> Finding detours...`;
+    document.getElementById('safeRouteTxt').innerHTML = `<strong>Safe route:</strong> Scanning detours...`;
 
-    // Add Markers for Start and End points with personalized tooltips
-    L.circleMarker([startData[0], startData[1]], { radius: 7, fillColor: '#0071e3', color: '#fff', weight: 2, fillOpacity: 1 }).bindTooltip(startData[2]).addTo(map);
-    L.circleMarker([endData[0], endData[1]], { radius: 7, fillColor: '#ff3b30', color: '#fff', weight: 2, fillOpacity: 1 }).bindTooltip(endData[2]).addTo(map);
-
-    // Call Leaflet Routing Machine to calculate exact road geometry
+    // Calculate new route hugging the actual roads
     activeRouteControl = L.Routing.control({
       waypoints: [
-        L.latLng(startData[0], startData[1]),
-        L.latLng(endData[0], endData[1])
+        L.latLng(startLoc.lat, startLoc.lng),
+        L.latLng(endLoc.lat, endLoc.lng)
       ],
       routeWhileDragging: false,
       addWaypoints: false,
-      show: false, // Hides the ugly default text panel
+      show: false, // Hides text panel via our CSS rule
       lineOptions: {
-        styles: [{ color: '#0071e3', opacity: 1, weight: 6, lineCap: 'round', dashArray: '10, 10' }]
+        styles: [{ color: '#0071e3', opacity: 0.8, weight: 6, lineCap: 'round', dashArray: '10, 10' }]
       },
-      createMarker: function() { return null; } // We draw our own markers above
+      createMarker: function() { return null; } // Keep map clean
     }).addTo(map);
 
-    // Update Sidebar with calculated distance once route is found
     activeRouteControl.on('routesfound', function(e) {
       let distanceKm = (e.routes[0].summary.totalDistance / 1000).toFixed(1);
-      document.getElementById('standardRouteTxt').innerHTML = `<strong>Standard route:</strong> ${(distanceKm - 0.2).toFixed(1)} km — crosses expected flooding`;
-      document.getElementById('safeRouteTxt').innerHTML = `<strong>Safe route:</strong> ${distanceKm} km — clear detour generated`;
+      document.getElementById('standardRouteTxt').innerHTML = `<strong>Standard route:</strong> ${distanceKm} km — active path`;
+      document.getElementById('safeRouteTxt').innerHTML = `<strong>Safe route:</strong> Monitoring flood zones...`;
     });
   });
 
-  // 4. Timeline Flood Simulation Logic
-  const getStatus = (edgeId, minute) => {
-    if (currentScenario === 'normal') return 'normal';
-    if (edgeId === "e_ambedkar" || edgeId === "e_naigaon") return minute > 75 ? 'flooded' : minute > 35 ? 'surcharge' : 'normal';
-    if (edgeId === "e_senapati" || edgeId === "e_elphinstone") return minute > 120 ? 'flooded' : minute > 65 ? 'surcharge' : 'normal';
-    return 'normal';
-  };
+  // 4. Flood Hazard Zones (Visual overlays that grow with time)
+  const floodZones = [
+    { lat: 19.0145, lng: 72.8400, radius: 450, offset: 0 },   // Hindamata
+    { lat: 19.0093, lng: 72.8385, radius: 350, offset: 15 },  // Parel TT
+    { lat: 19.0223, lng: 72.8431, radius: 250, offset: 30 }   // Dadar TT
+  ];
 
+  let zoneLayers = [];
+  floodZones.forEach(zone => {
+    let circle = L.circle([zone.lat, zone.lng], {
+      radius: zone.radius, color: 'transparent', fillColor: 'transparent'
+    }).addTo(map);
+    zoneLayers.push({ circle: circle, ...zone });
+  });
+
+  let currentScenario = 'severe';
   const timeLabel = document.getElementById('timeCurrent');
   const scoreNumber = document.getElementById('riskScore');
   const scoreLabel = document.getElementById('riskLabel');
@@ -105,32 +89,42 @@ document.addEventListener("DOMContentLoaded", () => {
     let mins = minute % 60;
     timeLabel.innerText = `T+${hours}:${mins.toString().padStart(2, '0')}`;
 
-    networkLayers.edges.forEach(edgeObj => {
-      let status = getStatus(edgeObj.id, minute);
-      let color = '#34c759'; 
-      if (status === 'surcharge') color = '#ff9500'; 
-      if (status === 'flooded') color = '#5ac8fa'; 
-      edgeObj.layer.setStyle({ color: color });
+    let currentScore = 10;
+    let floodedCount = 0;
+
+    // Dynamically color the hazard zones based on time
+    zoneLayers.forEach(z => {
+      let adjustedMinute = minute - z.offset;
+      if (currentScenario === 'normal') {
+        z.circle.setStyle({ color: 'transparent', fillColor: 'transparent' });
+      } else {
+        if (adjustedMinute > 75) {
+          z.circle.setStyle({ color: '#5ac8fa', fillColor: '#5ac8fa', fillOpacity: 0.3 }); // Teal/Flooded
+          floodedCount++;
+        } else if (adjustedMinute > 35) {
+          z.circle.setStyle({ color: '#ff9500', fillColor: '#ff9500', fillOpacity: 0.2 }); // Orange/Surcharge
+        } else {
+          z.circle.setStyle({ color: 'transparent', fillColor: 'transparent' });
+        }
+      }
     });
 
-    let currentScore = 10;
-    if (currentScenario === 'severe') {
-      if (minute > 75) currentScore = 92;
-      else if (minute > 35) currentScore = 48;
-    }
+    if (floodedCount > 0) currentScore = 92;
+    else if (minute > 35 && currentScenario === 'severe') currentScore = 48;
 
+    // Update Dashboard Risk Panel
     scoreNumber.innerText = currentScore;
     if (currentScore > 75) {
       scoreNumber.className = "score-number red";
       scoreLabel.className = "score-label red";
       scoreLabel.innerText = "CRITICAL";
-      alertsText.innerText = "SEVERE: Impassable flooding at Hindamata Junction. Reroute all traffic.";
+      alertsText.innerText = "SEVERE: Impassable flooding detected in marked zones. Avoid Hindamata.";
       alertsText.className = "subtitle alert";
     } else if (currentScore > 40) {
       scoreNumber.className = "score-number orange";
       scoreLabel.className = "score-label orange";
       scoreLabel.innerText = "SURCHARGE";
-      alertsText.innerText = "Warning: Dr. Ambedkar Rd storm drains exceeding capacity.";
+      alertsText.innerText = "Warning: Storm drains exceeding capacity in marked zones.";
       alertsText.className = "subtitle alert";
     } else {
       scoreNumber.className = "score-number green";
